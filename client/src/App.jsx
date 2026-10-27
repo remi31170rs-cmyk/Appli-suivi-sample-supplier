@@ -25,7 +25,10 @@ const emptyFollowup = {
 };
 
 async function api(path, token, options = {}) {
-  const response = await fetch(path, {
+  const apiPath = path.startsWith("/api/")
+    ? `${import.meta.env.BASE_URL}${path.slice(1)}`
+    : path;
+  const response = await fetch(apiPath, {
     ...options,
     headers: {
       ...(options.body ? { "Content-Type": "application/json" } : {}),

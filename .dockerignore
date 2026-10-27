@@ -1,0 +1,16 @@
+.git
+.github
+.vscode
+node_modules
+client/dist
+coverage
+.env
+.env.*
+server/.env
+server/.env.*
+.private
+deploy.curl
+backups
+*.dump
+*.log
+postgres_data

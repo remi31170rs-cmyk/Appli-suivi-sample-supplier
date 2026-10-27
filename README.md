@@ -36,3 +36,9 @@ Le script de création du compte gestionnaire demande les identifiants par varia
 - `GET /api/health` : état de l'API.
 
 Ne pas utiliser les identifiants de développement en production. Déployer avec TLS, un secret JWT dédié et une base PostgreSQL sauvegardée. Ce socle ne fournit pas encore de procédure de réinitialisation de mot de passe ni d'envoi d'invitations; à ajouter avant une ouverture à des utilisateurs externes.
+
+## Déploiement étudiant
+
+Le workflow GitHub Actions construit et publie une image Docker dans GHCR à chaque push sur `main` ou `master`. Pour la rendre compatible avec l'espace attribué, configurer la variable `IHME_BASE_PATH` (par exemple `/mon-projet/`). Le serveur doit être préprovisionné par l'enseignant et autoriser l'image GHCR de ce dépôt. À l'exécution, il doit fournir `DATABASE_URL` et un `JWT_SECRET` d'au moins 32 caractères; ces secrets ne sont jamais intégrés à l'image.
+
+Dans les paramètres Actions du dépôt, configurer la variable `IHME_DEPLOY_URL` (URL HTTPS terminée par `/__deploy/pNN`) et le secret `IHME_DEPLOY_TOKEN` remis par l'enseignant. Le déploiement est volontaire : lancer le workflow « Construire et publier l’image » manuellement et cocher « Déployer cette version après construction ». Ne jamais versionner de jeton ou de fichier d'accès.
