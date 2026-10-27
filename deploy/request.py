@@ -10,6 +10,15 @@ import urllib.parse
 import urllib.request
 
 
+PUBLIC_ERRORS = {
+    "configuration": "Configuration Docker invalide : demander à l’enseignant de vérifier la configuration serveur.",
+    "registry_auth": "Connexion à GHCR refusée : vérifier les droits du package et le jeton temporaire du workflow.",
+    "image_pull": "Téléchargement impossible : vérifier que le dépôt autorisé correspond au dépôt GitHub, que le digest existe et que le package est accessible.",
+    "unhealthy": "L’application ne démarre pas ou /api/health échoue sur le port 3000. Faire vérifier les journaux serveur par l’enseignant.",
+    "unhealthy_rollback": "L’application ne démarre pas ou /api/health échoue sur le port 3000. La version précédente a été rétablie ; faire vérifier les journaux serveur par l’enseignant.",
+}
+
+
 def request_deployment(url, token, digest, registry_token=""):
     address = urllib.parse.urlsplit(url)
     if (
@@ -47,15 +56,29 @@ def request_deployment(url, token, digest, registry_token=""):
         def redirect_request(self, *args):
             return None
 
-    with urllib.request.build_opener(NoRedirect()).open(request, timeout=440) as response:
-        result = json.load(response)
-        if (
-            response.status != 200
-            or result.get("status") != "healthy"
-            or result.get("digest") != digest
-        ):
-            raise ValueError("Version non saine.")
-        return result
+    try:
+        with urllib.request.build_opener(NoRedirect()).open(request, timeout=440) as response:
+            result = json.load(response)
+            if (
+                response.status != 200
+                or result.get("status") != "healthy"
+                or result.get("digest") != digest
+            ):
+                raise ValueError("Version non saine.")
+            return result
+    except urllib.error.HTTPError as error:
+        message = (
+            f"Échec HTTP {error.code}. "
+            "Consulter l’enseignant pour vérifier les journaux du serveur."
+        )
+        try:
+            payload = json.loads(error.read(4096))
+            code = payload.get("error_code") if isinstance(payload, dict) else None
+            if isinstance(code, str):
+                message = PUBLIC_ERRORS.get(code, message)
+        except (ValueError, OSError):
+            pass
+        raise ValueError(message) from None
 
 
 if __name__ == "__main__":
@@ -67,7 +90,13 @@ if __name__ == "__main__":
             os.environ.get("REGISTRY_TOKEN", ""),
         )
         print("Déploiement vérifié : " + result["project"] + " @ " + result["digest"])
-    except (ValueError, OSError, urllib.error.URLError):
+    except ValueError as error:
+        print(
+            "Déploiement refusé ou indisponible : " + str(error),
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except (OSError, urllib.error.URLError):
         print(
             "Déploiement refusé ou indisponible. Vérifier les paramètres privés et le résumé du workflow.",
             file=sys.stderr,
