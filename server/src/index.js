@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
+import { readFile } from "node:fs/promises";
 import jwt from "jsonwebtoken";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -238,4 +239,8 @@ app.use((error, _request, response, _next) => {
   response.status(500).json({ error: "Une erreur interne est survenue." });
 });
 
-app.listen(port, () => console.log(`API disponible sur http://localhost:${port}`));
+const schemaPath = path.resolve(currentDirectory, "../db/schema.sql");
+const schema = await readFile(schemaPath, "utf8");
+await pool.query(schema);
+
+app.listen(port, "0.0.0.0", () => console.log(`API disponible sur le port ${port}`));

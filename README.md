@@ -42,3 +42,5 @@ Ne pas utiliser les identifiants de développement en production. Déployer avec
 Le workflow GitHub Actions construit et publie une image Docker dans GHCR à chaque push sur `main` ou `master`. Pour la rendre compatible avec l'espace attribué, configurer la variable `IHME_BASE_PATH` (par exemple `/mon-projet/`). Le serveur doit être préprovisionné par l'enseignant et autoriser l'image GHCR de ce dépôt. À l'exécution, il doit fournir `DATABASE_URL` et un `JWT_SECRET` d'au moins 32 caractères; ces secrets ne sont jamais intégrés à l'image.
 
 Dans les paramètres Actions du dépôt, configurer la variable `IHME_DEPLOY_URL` (URL HTTPS terminée par `/__deploy/pNN`) et le secret `IHME_DEPLOY_TOKEN` remis par l'enseignant. Le déploiement est volontaire : lancer le workflow « Construire et publier l’image » manuellement et cocher « Déployer cette version après construction ». Ne jamais versionner de jeton ou de fichier d'accès.
+
+Au démarrage, l'API applique `server/db/schema.sql`, dont les opérations sont idempotentes, et limite le pool PostgreSQL à quatre connexions.
