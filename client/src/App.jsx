@@ -65,7 +65,12 @@ function App() {
   });
   const [showRegistration, setShowRegistration] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ email: "", password: "" });
-  const [newReference, setNewReference] = useState({ reference: "", supplierId: "" });
+  const [newReference, setNewReference] = useState({
+    reference: "",
+    supplierId: "",
+    supplierName: "",
+    supplierSelection: "",
+  });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -196,10 +201,14 @@ function App() {
     try {
       await api("/api/samples", token, {
         method: "POST",
-        body: JSON.stringify(newReference),
+        body: JSON.stringify({
+          reference: newReference.reference,
+          supplierId: newReference.supplierId,
+          supplierName: newReference.supplierName,
+        }),
       });
       await loadWorkspace(token, user);
-      setNewReference({ reference: "", supplierId: "" });
+      setNewReference({ reference: "", supplierId: "", supplierName: "", supplierSelection: "" });
       setMessage({ type: "success", text: "Référence créée et attribuée." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
@@ -324,7 +333,7 @@ function App() {
                     <div className="table-head"><span>RÉFÉRENCE</span><span>FOURNISSEUR</span><span>DEMANDE</span><span>DISPONIBILITÉ</span><span>ENVOI</span><span>RÉCEPTION</span><span>RENVOI</span></div>
                     {samples.map((sample) => <div className="table-row" key={sample.id}>
                       <strong className="ref-cell">{sample.reference}</strong>
-                      <span>{sample.supplierEmail || <em>Non attribué</em>}</span>
+                      <span>{sample.supplierName || sample.supplierEmail || <em>Non attribué</em>}</span>
                       <span>{dateLabel(sample.dateDemande)}</span>
                       <span className="status-detail"><Status value={sample.disponible} />{sample.disponible === "NO" && <small>Prévue · {dateLabel(sample.dateDisponibilite)}</small>}</span>
                       <span>{dateLabel(sample.dateEnvoi)}</span>
@@ -347,7 +356,41 @@ function App() {
                   <div className="panel-title"><span className="panel-icon yellow"><PackagePlus size={18} /></span><div><h3>Nouvelle référence</h3><p>Attribuer le sample à un fournisseur</p></div></div>
                   <form className="stack-form compact" onSubmit={createSample}>
                     <label>Référence<input value={newReference.reference} onChange={(event) => setNewReference({ ...newReference, reference: event.target.value })} placeholder="Ex. SAMPLE-002" maxLength={100} required /></label>
-                    <label>Fournisseur<select value={newReference.supplierId} onChange={(event) => setNewReference({ ...newReference, supplierId: event.target.value })}><option value="">Non attribué</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.email}</option>)}</select></label>
+                    <label>Fournisseur
+                      <select
+                        value={newReference.supplierSelection}
+                        onChange={(event) => {
+                          const selection = event.target.value;
+                          if (selection === "__new__") {
+                            setNewReference({ ...newReference, supplierId: "", supplierName: "", supplierSelection: selection });
+                          } else if (selection.startsWith("named:")) {
+                            setNewReference({ ...newReference, supplierId: "", supplierName: selection.slice(6), supplierSelection: selection });
+                          } else {
+                            setNewReference({ ...newReference, supplierId: selection.startsWith("account:") ? selection.slice(8) : "", supplierName: "", supplierSelection: selection });
+                          }
+                        }}
+                      >
+                        <option value="">Non attribué</option>
+                        {suppliers.map((supplier) => supplier.id ? (
+                          <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
+                            {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
+                          </option>
+                        ) : (
+                          <option key={`named:${supplier.name}`} value={`named:${supplier.name}`}>{supplier.name}</option>
+                        ))}
+                        <option value="__new__">+ Ajouter un fournisseur</option>
+                      </select>
+                    </label>
+                    {newReference.supplierSelection === "__new__" && (
+                      <label>Nom du fournisseur
+                        <input
+                          value={newReference.supplierName}
+                          onChange={(event) => setNewReference({ ...newReference, supplierName: event.target.value })}
+                          maxLength={150}
+                          required
+                        />
+                      </label>
+                    )}
                     <button className="button button-dark" disabled={busy}><Plus size={16} /> Créer la référence</button>
                   </form>
                 </section>

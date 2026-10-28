@@ -23,6 +23,7 @@ Le script de création du compte gestionnaire demande les identifiants par varia
 
 - Connexion avec JWT et rôles `manager` / `supplier`.
 - Création de compte depuis l'accueil avec prénom, nom, e-mail et mot de passe (12 caractères minimum). Un fournisseur renseigne son entreprise; un référant indique son poste et est rattaché à Lacoste.
+- Lors de la création d'une référence, un référant peut choisir un compte fournisseur existant ou ajouter un nom d'entreprise à l'annuaire; ce nom n'a pas d'accès de connexion.
 - Un gestionnaire crée une référence unique.
 - Un fournisseur connecté consulte les références et renseigne la date de demande, la disponibilité, la date de disponibilité prévue si `NO`, les dates d'envoi et de réception, le statut de renvoi et sa date si `YES`.
 - Les données sont persistées dans PostgreSQL.

@@ -12,10 +12,21 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS company TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title TEXT;
 
+CREATE TABLE IF NOT EXISTS supplier_directory (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT supplier_directory_name_not_blank CHECK (LENGTH(TRIM(name)) > 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS supplier_directory_name_lower_unique
+  ON supplier_directory (LOWER(name));
+
 CREATE TABLE IF NOT EXISTS samples (
   id BIGSERIAL PRIMARY KEY,
   reference TEXT NOT NULL,
   supplier_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  supplier_name TEXT,
   date_demande DATE,
   disponible TEXT CHECK (disponible IN ('YES', 'NO')),
   date_disponibilite DATE,
@@ -29,6 +40,8 @@ CREATE TABLE IF NOT EXISTS samples (
   CONSTRAINT sample_availability_date_required CHECK (disponible <> 'NO' OR date_disponibilite IS NOT NULL),
   CONSTRAINT sample_return_date_required CHECK (NOT renvoye OR date_renvoi IS NOT NULL)
 );
+
+ALTER TABLE samples ADD COLUMN IF NOT EXISTS supplier_name TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS samples_reference_lower_unique ON samples (LOWER(reference));
 CREATE INDEX IF NOT EXISTS samples_supplier_id_idx ON samples (supplier_id);

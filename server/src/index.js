@@ -36,6 +36,7 @@ function presentSample(row) {
     reference: row.reference,
     supplierId: row.supplier_id,
     supplierEmail: row.supplier_email || null,
+    supplierName: row.supplier_name || null,
     dateDemande: row.date_demande,
     disponible: row.disponible,
     dateDisponibilite: row.date_disponibilite,
@@ -167,7 +168,13 @@ app.get("/api/auth/me", requireAuth, async (request, response, next) => {
 
 app.get("/api/users/suppliers", requireAuth, requireRole("manager"), async (_request, response, next) => {
   try {
-    const result = await pool.query("SELECT id, email FROM users WHERE role = 'supplier' ORDER BY email");
+    const result = await pool.query(
+      `SELECT id, email, company, NULL::text AS name FROM users WHERE role = 'supplier'
+       UNION ALL
+       SELECT NULL::bigint AS id, NULL::text AS email, NULL::text AS company, name
+       FROM supplier_directory
+       ORDER BY company NULLS LAST, email NULLS LAST, name NULLS LAST`
+    );
     return response.json({ suppliers: result.rows });
   } catch (error) {
     return next(error);
@@ -214,15 +221,31 @@ app.post("/api/samples", requireAuth, requireRole("manager"), async (request, re
   try {
     const reference = String(request.body.reference || "").trim();
     const supplierId = request.body.supplierId ? Number(request.body.supplierId) : null;
+    const supplierName = String(request.body.supplierName || "").trim() || null;
     if (!reference || reference.length > 100) {
       return response.status(400).json({ error: "La référence doit contenir entre 1 et 100 caractères." });
     }
     if (supplierId !== null && (!Number.isSafeInteger(supplierId) || supplierId < 1)) {
       return response.status(400).json({ error: "Fournisseur invalide." });
     }
+    if (supplierName && supplierName.length > 150) {
+      return response.status(400).json({ error: "Le nom du fournisseur ne peut pas dépasser 150 caractères." });
+    }
+    if (supplierId !== null && supplierName) {
+      return response.status(400).json({ error: "Choisissez un compte fournisseur ou un nom, pas les deux." });
+    }
     const result = await pool.query(
-      "INSERT INTO samples (reference, supplier_id) VALUES ($1, $2) RETURNING *",
-      [reference, supplierId]
+      `WITH supplier AS (
+         INSERT INTO supplier_directory (name)
+         SELECT $3
+         WHERE $3 IS NOT NULL
+         ON CONFLICT (LOWER(name)) DO UPDATE SET name = supplier_directory.name
+         RETURNING name
+       )
+       INSERT INTO samples (reference, supplier_id, supplier_name)
+       VALUES ($1, $2, (SELECT name FROM supplier))
+       RETURNING *`,
+      [reference, supplierId, supplierName]
     );
     return response.status(201).json({ sample: presentSample(result.rows[0]) });
   } catch (error) {
