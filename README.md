@@ -22,6 +22,7 @@ Le script de création du compte gestionnaire demande les identifiants par varia
 ## Fonctionnalités de base
 
 - Connexion avec JWT et rôles `manager` / `supplier`.
+- Création de compte depuis l'accueil avec prénom, nom, e-mail et mot de passe (12 caractères minimum). Un fournisseur renseigne son entreprise; un référant indique son poste et est rattaché à Lacoste.
 - Un gestionnaire crée une référence unique.
 - Un fournisseur connecté consulte les références et renseigne la date de demande, la disponibilité, la date de disponibilité prévue si `NO`, les dates d'envoi et de réception, le statut de renvoi et sa date si `YES`.
 - Les données sont persistées dans PostgreSQL.
@@ -29,13 +30,14 @@ Le script de création du compte gestionnaire demande les identifiants par varia
 ## API
 
 - `POST /api/auth/login` : connexion.
+- `POST /api/auth/register` : création de compte fournisseur ou référant Lacoste.
 - `GET /api/auth/me` : utilisateur courant (JWT requis).
 - `GET /api/samples` : liste des samples (JWT requis).
 - `POST /api/samples` : créer une référence (manager uniquement).
 - `PATCH /api/samples/:id` : modifier les champs de suivi (supplier uniquement).
 - `GET /api/health` : état de l'API.
 
-Ne pas utiliser les identifiants de développement en production. Déployer avec TLS, un secret JWT dédié et une base PostgreSQL sauvegardée. Ce socle ne fournit pas encore de procédure de réinitialisation de mot de passe ni d'envoi d'invitations; à ajouter avant une ouverture à des utilisateurs externes.
+Ne pas utiliser les identifiants de développement en production. Déployer avec TLS, un secret JWT dédié et une base PostgreSQL sauvegardée. L'inscription publique des référants crée un compte gestionnaire, autorisé à créer des références et des fournisseurs; ne l'activer que si cet accès ouvert est volontaire. Ce socle ne fournit pas encore de procédure de réinitialisation de mot de passe ni d'envoi d'invitations.
 
 ## Déploiement étudiant
 

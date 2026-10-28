@@ -50,6 +50,9 @@ button { cursor: pointer; }
 .button-dark { color: #fff; background: var(--green); }
 .button-dark:hover:not(:disabled) { background: var(--green-dark); }
 .button-wide { width: 100%; min-height: 46px; margin-top: 4px; }
+.login-switch { width: 100%; margin-top: 18px; border: 0; padding: 8px; color: var(--green); background: transparent; font-size: 12px; font-weight: 700; }
+.login-switch:hover { text-decoration: underline; }
+.login-note { margin: -5px 0 0; color: var(--muted); font-size: 12px; }
 .login-foot { display: flex; align-items: center; gap: 7px; margin-top: 27px; color: #89948b; font-size: 11px; }
 
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 230px minmax(0, 1fr); }

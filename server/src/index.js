@@ -47,6 +47,18 @@ function presentSample(row) {
   };
 }
 
+function presentUser(row) {
+  return {
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    company: row.company,
+    jobTitle: row.job_title,
+  };
+}
+
 function isOptionalDate(value) {
   if (value === null || value === "") return true;
   if (typeof value !== "string" || value.length !== 10 || value[4] !== "-" || value[7] !== "-") return false;
@@ -65,12 +77,64 @@ app.get("/api/health", async (_request, response) => {
   }
 });
 
+app.post("/api/auth/register", async (request, response, next) => {
+  try {
+    const email = String(request.body.email || "").trim().toLowerCase();
+    const password = String(request.body.password || "");
+    const firstName = String(request.body.firstName || "").trim();
+    const lastName = String(request.body.lastName || "").trim();
+    const accountType = request.body.accountType;
+    const company = String(request.body.company || "").trim();
+    const jobTitle = String(request.body.jobTitle || "").trim();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return response.status(400).json({ error: "Adresse e-mail invalide." });
+    }
+    if (password.length < 12) {
+      return response.status(400).json({ error: "Le mot de passe doit contenir au moins 12 caractères." });
+    }
+    if (!firstName || firstName.length > 100 || !lastName || lastName.length > 100) {
+      return response.status(400).json({ error: "Le prénom et le nom sont obligatoires (100 caractères maximum)." });
+    }
+    if (accountType === "supplier" && (!company || company.length > 150)) {
+      return response.status(400).json({ error: "Le nom de l’entreprise est obligatoire (150 caractères maximum)." });
+    }
+    if (accountType === "referrer" && (!jobTitle || jobTitle.length > 120)) {
+      return response.status(400).json({ error: "Le poste occupé est obligatoire (120 caractères maximum)." });
+    }
+    if (!["supplier", "referrer"].includes(accountType)) {
+      return response.status(400).json({ error: "Type de compte invalide." });
+    }
+
+    const role = accountType === "referrer" ? "manager" : "supplier";
+    const passwordHash = await bcrypt.hash(password, 12);
+    const result = await pool.query(
+      `INSERT INTO users (email, password_hash, role, first_name, last_name, company, job_title)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, email, role, first_name, last_name, company, job_title`,
+      [email, passwordHash, role, firstName, lastName,
+       accountType === "referrer" ? "Lacoste" : company,
+       accountType === "referrer" ? jobTitle : null]
+    );
+    const user = presentUser(result.rows[0]);
+    const token = jwt.sign(
+      { sub: String(user.id), role: user.role, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+    return response.status(201).json({ token, user });
+  } catch (error) {
+    if (error.code === "23505") return response.status(409).json({ error: "Cette adresse e-mail possède déjà un compte." });
+    return next(error);
+  }
+});
+
 app.post("/api/auth/login", async (request, response, next) => {
   try {
     const email = String(request.body.email || "").trim().toLowerCase();
     const password = String(request.body.password || "");
     const result = await pool.query(
-      "SELECT id, email, password_hash, role FROM users WHERE email = $1",
+      "SELECT id, email, password_hash, role, first_name, last_name, company, job_title FROM users WHERE email = $1",
       [email]
     );
     const user = result.rows[0];
@@ -82,7 +146,7 @@ app.post("/api/auth/login", async (request, response, next) => {
       process.env.JWT_SECRET,
       { expiresIn: "8h" }
     );
-    return response.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+    return response.json({ token, user: presentUser(user) });
   } catch (error) {
     return next(error);
   }
@@ -90,9 +154,12 @@ app.post("/api/auth/login", async (request, response, next) => {
 
 app.get("/api/auth/me", requireAuth, async (request, response, next) => {
   try {
-    const result = await pool.query("SELECT id, email, role FROM users WHERE id = $1", [request.user.sub]);
+    const result = await pool.query(
+      "SELECT id, email, role, first_name, last_name, company, job_title FROM users WHERE id = $1",
+      [request.user.sub]
+    );
     if (!result.rowCount) return response.status(401).json({ error: "Compte introuvable." });
-    return response.json({ user: result.rows[0] });
+    return response.json({ user: presentUser(result.rows[0]) });
   } catch (error) {
     return next(error);
   }

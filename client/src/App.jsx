@@ -54,6 +54,16 @@ function App() {
   const [selectedId, setSelectedId] = useState("");
   const [followup, setFollowup] = useState(emptyFollowup);
   const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [registration, setRegistration] = useState({
+    email: "",
+    password: "",
+    firstName: "",
+    lastName: "",
+    accountType: "supplier",
+    company: "",
+    jobTitle: "",
+  });
+  const [showRegistration, setShowRegistration] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ email: "", password: "" });
   const [newReference, setNewReference] = useState({ reference: "", supplierId: "" });
   const [busy, setBusy] = useState(false);
@@ -121,6 +131,27 @@ function App() {
       setToken(result.token);
       await loadWorkspace(result.token, result.user);
       setMessage({ type: "success", text: "Connexion réussie." });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitRegistration(event) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api("/api/auth/register", "", {
+        method: "POST",
+        body: JSON.stringify(registration),
+      });
+      localStorage.setItem("sample-token", result.token);
+      setUser(result.user);
+      setToken(result.token);
+      await loadWorkspace(result.token, result.user);
+      setMessage({ type: "success", text: "Compte créé. Bienvenue !" });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -219,14 +250,38 @@ function App() {
           <div className="login-inner">
             <div className="brand-mark"><Factory size={20} /></div>
             <p className="eyebrow">Espace sécurisé</p>
-            <h2>Connexion</h2>
-            <p className="muted">Connectez-vous à votre espace de suivi fournisseur.</p>
+            <h2>{showRegistration ? "Créer un compte" : "Connexion"}</h2>
+            <p className="muted">{showRegistration ? "Créez votre accès au suivi des échantillons." : "Connectez-vous à votre espace de suivi fournisseur."}</p>
             {message && <Message message={message} />}
-            <form className="stack-form" onSubmit={submitLogin}>
-              <label>Adresse e-mail<input type="email" autoComplete="username" value={credentials.email} onChange={(event) => setCredentials({ ...credentials, email: event.target.value })} required /></label>
-              <label>Mot de passe<input type="password" autoComplete="current-password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} required /></label>
-              <button className="button button-dark button-wide" disabled={busy}>{busy ? "Connexion…" : "Se connecter"}<ArrowUpRight size={17} /></button>
-            </form>
+            {showRegistration ? (
+              <form className="stack-form" onSubmit={submitRegistration}>
+                <div className="field-grid">
+                  <label className="form-field">Prénom<input autoComplete="given-name" maxLength={100} value={registration.firstName} onChange={(event) => setRegistration({ ...registration, firstName: event.target.value })} required /></label>
+                  <label className="form-field">Nom<input autoComplete="family-name" maxLength={100} value={registration.lastName} onChange={(event) => setRegistration({ ...registration, lastName: event.target.value })} required /></label>
+                </div>
+                <label>Adresse e-mail<input type="email" autoComplete="email" maxLength={254} value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} required /></label>
+                <label>Mot de passe<input type="password" autoComplete="new-password" minLength={12} value={registration.password} onChange={(event) => setRegistration({ ...registration, password: event.target.value })} required /><small>12 caractères minimum</small></label>
+                <label>Type de compte<select value={registration.accountType} onChange={(event) => setRegistration({ ...registration, accountType: event.target.value })}><option value="supplier">Fournisseur</option><option value="referrer">Référant Lacoste</option></select></label>
+                {registration.accountType === "supplier" ? (
+                  <label>Nom de l’entreprise<input autoComplete="organization" maxLength={150} value={registration.company} onChange={(event) => setRegistration({ ...registration, company: event.target.value })} required /></label>
+                ) : (
+                  <>
+                    <label>Poste occupé<input autoComplete="organization-title" maxLength={120} value={registration.jobTitle} onChange={(event) => setRegistration({ ...registration, jobTitle: event.target.value })} required /></label>
+                    <p className="login-note">Entreprise : Lacoste</p>
+                  </>
+                )}
+                <button className="button button-dark button-wide" disabled={busy}>{busy ? "Création…" : "Créer mon compte"}<ArrowUpRight size={17} /></button>
+              </form>
+            ) : (
+              <form className="stack-form" onSubmit={submitLogin}>
+                <label>Adresse e-mail<input type="email" autoComplete="username" value={credentials.email} onChange={(event) => setCredentials({ ...credentials, email: event.target.value })} required /></label>
+                <label>Mot de passe<input type="password" autoComplete="current-password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} required /></label>
+                <button className="button button-dark button-wide" disabled={busy}>{busy ? "Connexion…" : "Se connecter"}<ArrowUpRight size={17} /></button>
+              </form>
+            )}
+            <button className="login-switch" type="button" onClick={() => { setShowRegistration(!showRegistration); setMessage(null); }}>
+              {showRegistration ? "Vous avez déjà un compte ? Se connecter" : "Pas encore de compte ? Créer un compte"}
+            </button>
             <p className="login-foot"><ShieldCheck size={15} /> Accès réservé aux comptes autorisés</p>
           </div>
         </section>
@@ -242,7 +297,7 @@ function App() {
         <div className="nav-item active"><Boxes size={17} /> Échantillons <span className="nav-count">{samples.length}</span></div>
         {manager && <div className="nav-item"><Users size={17} /> Fournisseurs <span className="nav-count">{suppliers.length}</span></div>}
         <div className="sidebar-bottom">
-          <div className="account-card"><span className="avatar">{user.email.slice(0, 1).toUpperCase()}</span><span className="account-name"><strong>{user.email}</strong><small>{manager ? "Gestionnaire" : "Fournisseur"}</small></span></div>
+          <div className="account-card"><span className="avatar">{(user.firstName || user.email).slice(0, 1).toUpperCase()}</span><span className="account-name"><strong>{[user.firstName, user.lastName].filter(Boolean).join(" ") || user.email}</strong><small>{manager ? `Référant · ${user.jobTitle || "Lacoste"}` : `Fournisseur · ${user.company || user.email}`}</small></span></div>
           <button className="signout" onClick={signOut}><LogOut size={16} /> Déconnexion</button>
         </div>
       </aside>
