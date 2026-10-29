@@ -71,6 +71,7 @@ function App() {
   });
   const [showRegistration, setShowRegistration] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ email: "", password: "" });
+  const [newSupplierName, setNewSupplierName] = useState("");
   const [newReference, setNewReference] = useState({
     reference: "",
     supplierId: "",
@@ -199,6 +200,26 @@ function App() {
       setSuppliers(supplierRows);
       setNewSupplier({ email: "", password: "" });
       setMessage({ type: "success", text: "Compte fournisseur créé." });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createSupplierName(event) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api("/api/suppliers/directory", token, {
+        method: "POST",
+        body: JSON.stringify({ name: newSupplierName }),
+      });
+      const { suppliers: supplierRows } = await api("/api/users/suppliers", token);
+      setSuppliers(supplierRows);
+      setNewSupplierName("");
+      setMessage({ type: "success", text: "Fournisseur ajouté à la liste." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -402,7 +423,14 @@ function App() {
                 </div>
                 <aside className="forms-column">
                   <section className="form-panel">
-                    <div className="panel-title"><span className="panel-icon mint"><Users size={18} /></span><div><h3>Ajouter un fournisseur</h3><p>Créer son accès sécurisé</p></div></div>
+                    <div className="panel-title"><span className="panel-icon mint"><Users size={18} /></span><div><h3>Ajouter à la liste fournisseur</h3><p>Sans créer de référence ni de compte</p></div></div>
+                    <form className="stack-form compact" onSubmit={createSupplierName}>
+                      <label>Nom du fournisseur<input value={newSupplierName} onChange={(event) => setNewSupplierName(event.target.value)} maxLength={150} required /></label>
+                      <button className="button button-dark" disabled={busy}><Plus size={16} /> Ajouter à la liste</button>
+                    </form>
+                  </section>
+                  <section className="form-panel">
+                    <div className="panel-title"><span className="panel-icon mint"><Users size={18} /></span><div><h3>Créer un accès fournisseur</h3><p>Créer un compte de connexion sécurisé</p></div></div>
                     <form className="stack-form compact" onSubmit={createSupplier}>
                       <label>Adresse e-mail<input type="email" value={newSupplier.email} onChange={(event) => setNewSupplier({ ...newSupplier, email: event.target.value })} required /></label>
                       <label>Mot de passe temporaire<input type="password" minLength={12} value={newSupplier.password} onChange={(event) => setNewSupplier({ ...newSupplier, password: event.target.value })} required /><small>12 caractères minimum</small></label>
@@ -566,24 +594,24 @@ function ColumnFilter({ label, values, selected, onChange }) {
   );
 }
 
-function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
-  const [draft, setDraft] = useState({});
+function createManagerSampleDraft(sample) {
   const supplierSelection = sample.supplierId
     ? `account:${sample.supplierId}`
     : sample.supplierName ? `named:${sample.supplierName}` : "";
+  return {
+    supplierSelection,
+    dateDemande: sample.dateDemande || "",
+    disponible: sample.disponible || "",
+    dateDisponibilite: sample.dateDisponibilite || "",
+    dateEnvoi: sample.dateEnvoi || "",
+    dateReception: sample.dateReception || "",
+    renvoye: sample.renvoye || "NO",
+    dateRenvoi: sample.dateRenvoi || "",
+  };
+}
 
-  useEffect(() => {
-    setDraft({
-      supplierSelection,
-      dateDemande: sample.dateDemande || "",
-      disponible: sample.disponible || "",
-      dateDisponibilite: sample.dateDisponibilite || "",
-      dateEnvoi: sample.dateEnvoi || "",
-      dateReception: sample.dateReception || "",
-      renvoye: sample.renvoye || "NO",
-      dateRenvoi: sample.dateRenvoi || "",
-    });
-  }, [sample, supplierSelection]);
+function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
+  const [draft, setDraft] = useState(() => createManagerSampleDraft(sample));
 
   function update(key, value) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -591,10 +619,11 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
 
   function submit(event) {
     event.preventDefault();
-    const account = draft.supplierSelection.startsWith("account:");
+    const selection = draft.supplierSelection || "";
+    const account = selection.startsWith("account:");
     onSave(sample.id, {
-      supplierId: account ? draft.supplierSelection.slice(8) : null,
-      supplierName: draft.supplierSelection.startsWith("named:") ? draft.supplierSelection.slice(6) : null,
+      supplierId: account ? selection.slice(8) : null,
+      supplierName: selection.startsWith("named:") ? selection.slice(6) : null,
       dateDemande: draft.dateDemande,
       disponible: draft.disponible,
       dateDisponibilite: draft.dateDisponibilite,

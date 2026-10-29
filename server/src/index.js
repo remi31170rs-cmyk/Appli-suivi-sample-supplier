@@ -182,6 +182,25 @@ app.get("/api/users/suppliers", requireAuth, requireRole("manager"), async (_req
   }
 });
 
+app.post("/api/suppliers/directory", requireAuth, requireRole("manager"), async (request, response, next) => {
+  try {
+    const name = String(request.body.name || "").trim();
+    if (!name || name.length > 150) {
+      return response.status(400).json({ error: "Le nom du fournisseur est obligatoire (150 caractères maximum)." });
+    }
+    const result = await pool.query(
+      `INSERT INTO supplier_directory (name) VALUES ($1)
+       ON CONFLICT (LOWER(name)) DO NOTHING
+       RETURNING name`,
+      [name]
+    );
+    if (!result.rowCount) return response.status(409).json({ error: "Ce fournisseur figure déjà dans la liste." });
+    return response.status(201).json({ supplier: result.rows[0] });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post("/api/users/suppliers", requireAuth, requireRole("manager"), async (request, response, next) => {
   try {
     const email = String(request.body.email || "").trim().toLowerCase();
