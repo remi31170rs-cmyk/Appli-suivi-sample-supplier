@@ -58,7 +58,14 @@ function presentUser(row) {
     lastName: row.last_name,
     company: row.company,
     jobTitle: row.job_title,
+    phone: row.phone,
   };
+}
+
+function validInternationalPhone(value) {
+  if (typeof value !== "string" || !/^\+[0-9\s().-]+$/.test(value)) return false;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
 }
 
 function isOptionalDate(value) {
@@ -88,6 +95,7 @@ app.post("/api/auth/register", async (request, response, next) => {
     const accountType = request.body.accountType;
     const company = String(request.body.company || "").trim();
     const jobTitle = String(request.body.jobTitle || "").trim();
+    const phone = String(request.body.phone || "").trim();
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
       return response.status(400).json({ error: "Adresse e-mail invalide." });
@@ -101,6 +109,9 @@ app.post("/api/auth/register", async (request, response, next) => {
     if (accountType === "supplier" && (!company || company.length > 150)) {
       return response.status(400).json({ error: "Le nom de l’entreprise est obligatoire (150 caractères maximum)." });
     }
+    if (accountType === "supplier" && !validInternationalPhone(phone)) {
+      return response.status(400).json({ error: "Indiquez un numéro international valide, avec son indicatif (ex. +33 6 12 34 56 78)." });
+    }
     if (accountType === "referrer" && (!jobTitle || jobTitle.length > 120)) {
       return response.status(400).json({ error: "Le poste occupé est obligatoire (120 caractères maximum)." });
     }
@@ -111,12 +122,13 @@ app.post("/api/auth/register", async (request, response, next) => {
     const role = accountType === "referrer" ? "manager" : "supplier";
     const passwordHash = await bcrypt.hash(password, 12);
     const result = await pool.query(
-      `INSERT INTO users (email, password_hash, role, first_name, last_name, company, job_title)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, email, role, first_name, last_name, company, job_title`,
+      `INSERT INTO users (email, password_hash, role, first_name, last_name, company, job_title, phone)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, email, role, first_name, last_name, company, job_title, phone`,
       [email, passwordHash, role, firstName, lastName,
        accountType === "referrer" ? "Lacoste" : company,
-       accountType === "referrer" ? jobTitle : null]
+       accountType === "referrer" ? jobTitle : null,
+       accountType === "supplier" ? phone : null]
     );
     const user = presentUser(result.rows[0]);
     const token = jwt.sign(
@@ -136,7 +148,7 @@ app.post("/api/auth/login", async (request, response, next) => {
     const email = String(request.body.email || "").trim().toLowerCase();
     const password = String(request.body.password || "");
     const result = await pool.query(
-      "SELECT id, email, password_hash, role, first_name, last_name, company, job_title FROM users WHERE email = $1",
+      "SELECT id, email, password_hash, role, first_name, last_name, company, job_title, phone FROM users WHERE email = $1",
       [email]
     );
     const user = result.rows[0];
@@ -157,7 +169,7 @@ app.post("/api/auth/login", async (request, response, next) => {
 app.get("/api/auth/me", requireAuth, async (request, response, next) => {
   try {
     const result = await pool.query(
-      "SELECT id, email, role, first_name, last_name, company, job_title FROM users WHERE id = $1",
+      "SELECT id, email, role, first_name, last_name, company, job_title, phone FROM users WHERE id = $1",
       [request.user.sub]
     );
     if (!result.rowCount) return response.status(401).json({ error: "Compte introuvable." });
@@ -170,9 +182,11 @@ app.get("/api/auth/me", requireAuth, async (request, response, next) => {
 app.get("/api/users/suppliers", requireAuth, requireRole("manager"), async (_request, response, next) => {
   try {
     const result = await pool.query(
-      `SELECT id, email, company, NULL::text AS name FROM users WHERE role = 'supplier'
+      `SELECT id, email, company, NULL::text AS name, first_name, last_name, phone,
+              'account'::text AS kind FROM users WHERE role = 'supplier'
        UNION ALL
-       SELECT NULL::bigint AS id, NULL::text AS email, NULL::text AS company, name
+       SELECT NULL::bigint AS id, email, name AS company, name, first_name, last_name, phone,
+              'directory'::text AS kind
        FROM supplier_directory
        ORDER BY company NULLS LAST, email NULLS LAST, name NULLS LAST`
     );
@@ -185,18 +199,33 @@ app.get("/api/users/suppliers", requireAuth, requireRole("manager"), async (_req
 app.post("/api/suppliers/directory", requireAuth, requireRole("manager"), async (request, response, next) => {
   try {
     const name = String(request.body.name || "").trim();
-    if (!name || name.length > 150) {
-      return response.status(400).json({ error: "Le nom du fournisseur est obligatoire (150 caractères maximum)." });
+    const firstName = String(request.body.firstName || "").trim();
+    const lastName = String(request.body.lastName || "").trim();
+    const email = String(request.body.email || "").trim().toLowerCase();
+    const phone = String(request.body.phone || "").trim();
+    if (!name || name.length > 150 || !firstName || firstName.length > 100 || !lastName || lastName.length > 100) {
+      return response.status(400).json({ error: "Le fournisseur et le prénom et nom du contact sont obligatoires. Limites : fournisseur 150 caractères, prénom et nom 100 caractères." });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return response.status(400).json({ error: "Adresse e-mail invalide." });
+    }
+    if (!validInternationalPhone(phone)) {
+      return response.status(400).json({ error: "Indiquez un numéro international valide, avec son indicatif (ex. +33 6 12 34 56 78)." });
     }
     const result = await pool.query(
-      `INSERT INTO supplier_directory (name) VALUES ($1)
-       ON CONFLICT (LOWER(name)) DO NOTHING
-       RETURNING name`,
-      [name]
+      `INSERT INTO supplier_directory (name, first_name, last_name, email, phone)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (LOWER(name)) DO UPDATE SET
+         first_name = EXCLUDED.first_name,
+         last_name = EXCLUDED.last_name,
+         email = EXCLUDED.email,
+         phone = EXCLUDED.phone
+       RETURNING id, name, first_name, last_name, email, phone`,
+      [name, firstName, lastName, email, phone]
     );
-    if (!result.rowCount) return response.status(409).json({ error: "Ce fournisseur figure déjà dans la liste." });
     return response.status(201).json({ supplier: result.rows[0] });
   } catch (error) {
+    if (error.code === "23505") return response.status(409).json({ error: "Cette adresse e-mail est déjà utilisée par un fournisseur." });
     return next(error);
   }
 });

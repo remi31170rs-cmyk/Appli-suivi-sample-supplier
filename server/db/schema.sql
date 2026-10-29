@@ -11,16 +11,28 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS company TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
 
 CREATE TABLE IF NOT EXISTS supplier_directory (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
+  first_name TEXT,
+  last_name TEXT,
+  email TEXT,
+  phone TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT supplier_directory_name_not_blank CHECK (LENGTH(TRIM(name)) > 0)
 );
 
+ALTER TABLE supplier_directory ADD COLUMN IF NOT EXISTS first_name TEXT;
+ALTER TABLE supplier_directory ADD COLUMN IF NOT EXISTS last_name TEXT;
+ALTER TABLE supplier_directory ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE supplier_directory ADD COLUMN IF NOT EXISTS phone TEXT;
+
 CREATE UNIQUE INDEX IF NOT EXISTS supplier_directory_name_lower_unique
   ON supplier_directory (LOWER(name));
+CREATE UNIQUE INDEX IF NOT EXISTS supplier_directory_email_lower_unique
+  ON supplier_directory (LOWER(email)) WHERE email IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS samples (
   id BIGSERIAL PRIMARY KEY,

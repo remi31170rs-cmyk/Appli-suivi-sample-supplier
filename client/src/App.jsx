@@ -80,11 +80,17 @@ function App() {
     lastName: "",
     accountType: "supplier",
     company: "",
+    phone: "",
     jobTitle: "",
   });
   const [showRegistration, setShowRegistration] = useState(false);
-  const [newSupplier, setNewSupplier] = useState({ email: "", password: "" });
-  const [newSupplierName, setNewSupplierName] = useState("");
+  const [newSupplier, setNewSupplier] = useState({
+    name: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+  });
   const [newReference, setNewReference] = useState({
     reference: "",
     supplierId: "",
@@ -200,39 +206,19 @@ function App() {
     setMessage(null);
   }
 
-  async function createSupplier(event) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    try {
-      await api("/api/users/suppliers", token, {
-        method: "POST",
-        body: JSON.stringify(newSupplier),
-      });
-      const { suppliers: supplierRows } = await api("/api/users/suppliers", token);
-      setSuppliers(supplierRows);
-      setNewSupplier({ email: "", password: "" });
-      setMessage({ type: "success", text: "Compte fournisseur créé." });
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function createSupplierName(event) {
+  async function saveSupplier(event) {
     event.preventDefault();
     setBusy(true);
     setMessage(null);
     try {
       await api("/api/suppliers/directory", token, {
         method: "POST",
-        body: JSON.stringify({ name: newSupplierName }),
+        body: JSON.stringify(newSupplier),
       });
       const { suppliers: supplierRows } = await api("/api/users/suppliers", token);
       setSuppliers(supplierRows);
-      setNewSupplierName("");
-      setMessage({ type: "success", text: "Fournisseur ajouté à la liste." });
+      setNewSupplier({ name: "", firstName: "", lastName: "", email: "", phone: "" });
+      setMessage({ type: "success", text: "Fournisseur enregistré." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -350,7 +336,10 @@ function App() {
                 <label>Mot de passe<input type="password" autoComplete="new-password" minLength={12} value={registration.password} onChange={(event) => setRegistration({ ...registration, password: event.target.value })} required /><small>12 caractères minimum</small></label>
                 <label>Type de compte<select value={registration.accountType} onChange={(event) => setRegistration({ ...registration, accountType: event.target.value })}><option value="supplier">Fournisseur</option><option value="referrer">Référant Lacoste</option></select></label>
                 {registration.accountType === "supplier" ? (
-                  <label>Nom de l’entreprise<input autoComplete="organization" maxLength={150} value={registration.company} onChange={(event) => setRegistration({ ...registration, company: event.target.value })} required /></label>
+                  <>
+                    <label>Nom de l’entreprise<input autoComplete="organization" maxLength={150} value={registration.company} onChange={(event) => setRegistration({ ...registration, company: event.target.value })} required /></label>
+                    <label>Téléphone international<input type="tel" autoComplete="tel" placeholder="+33 6 12 34 56 78" maxLength={30} value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} required /></label>
+                  </>
                 ) : (
                   <>
                     <label>Poste occupé<input autoComplete="organization-title" maxLength={120} value={registration.jobTitle} onChange={(event) => setRegistration({ ...registration, jobTitle: event.target.value })} required /></label>
@@ -381,8 +370,14 @@ function App() {
       <aside className="sidebar">
         <a className="brand" href="#top"><span className="brand-mark"><Boxes size={20} /></span><span>sample<span className="brand-light">desk</span></span></a>
         <div className="side-label">ESPACE</div>
-        <div className="nav-item active"><Boxes size={17} /> Échantillons <span className="nav-count">{samples.length}</span></div>
-        {manager && <div className="nav-item"><Users size={17} /> Fournisseurs <span className="nav-count">{suppliers.length}</span></div>}
+        <button type="button" className={`nav-item ${activeView !== "fournisseurs" ? "active" : ""}`} onClick={() => setActiveView("suivi")}>
+          <Boxes size={17} /> Échantillons <span className="nav-count">{samples.length}</span>
+        </button>
+        {manager && (
+          <button type="button" className={`nav-item ${activeView === "fournisseurs" ? "active" : ""}`} onClick={() => setActiveView("fournisseurs")}>
+            <Users size={17} /> Fournisseurs <span className="nav-count">{suppliers.length}</span>
+          </button>
+        )}
         <div className="sidebar-bottom">
           <div className="account-card"><span className="avatar">{(user.firstName || user.email).slice(0, 1).toUpperCase()}</span><span className="account-name"><strong>{[user.firstName, user.lastName].filter(Boolean).join(" ") || user.email}</strong><small>{manager ? `Référant · ${user.jobTitle || "Lacoste"}` : `Fournisseur · ${user.company || user.email}`}</small></span></div>
           <button className="signout" onClick={signOut}><LogOut size={16} /> Déconnexion</button>
@@ -391,10 +386,10 @@ function App() {
 
       <main className="main-area" id="top">
         <header className="page-header">
-          <div><p className="eyebrow">{manager ? "GESTION FOURNISSEURS" : "PORTAIL FOURNISSEUR"}</p><h1>{manager && activeView === "historique" ? "Historique des échantillons" : "Suivi des échantillons"}</h1></div>
+          <div><p className="eyebrow">{manager ? "GESTION FOURNISSEURS" : "PORTAIL FOURNISSEUR"}</p><h1>{manager && activeView === "historique" ? "Historique des échantillons" : manager && activeView === "fournisseurs" ? "Gestion des fournisseurs" : "Suivi des échantillons"}</h1></div>
           <div className="header-right"><span className="connection"><span /> Connecté</span><span className="header-date">{new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date())}</span></div>
         </header>
-        {manager && (
+        {manager && activeView !== "fournisseurs" && (
           <nav className="view-tabs" aria-label="Pages de suivi">
             <button type="button" className={activeView === "suivi" ? "active" : ""} onClick={() => setActiveView("suivi")}>SUIVI</button>
             <button type="button" className={activeView === "historique" ? "active" : ""} onClick={() => setActiveView("historique")}>
@@ -405,7 +400,9 @@ function App() {
         {message && <Message message={message} />}
 
         {manager ? (
-          activeView === "historique" ? (
+          activeView === "fournisseurs" ? (
+            <SupplierDirectory suppliers={suppliers} newSupplier={newSupplier} setNewSupplier={setNewSupplier} saveSupplier={saveSupplier} busy={busy} />
+          ) : activeView === "historique" ? (
             <section className="manager-page">
               <div className="section-heading"><div><p className="eyebrow">ARCHIVES</p><h2>Références supprimées</h2></div><span className="result-count">{historySamples.length} au total</span></div>
               {historySamples.length === 0 ? <EmptyState text="Aucune référence supprimée." /> : (
@@ -436,21 +433,6 @@ function App() {
                 </div>
                 <aside className="forms-column">
                   <section className="form-panel">
-                    <div className="panel-title"><span className="panel-icon mint"><Users size={18} /></span><div><h3>Ajouter à la liste fournisseur</h3><p>Sans créer de référence ni de compte</p></div></div>
-                    <form className="stack-form compact" onSubmit={createSupplierName}>
-                      <label>Nom du fournisseur<input value={newSupplierName} onChange={(event) => setNewSupplierName(event.target.value)} maxLength={150} required /></label>
-                      <button className="button button-dark" disabled={busy}><Plus size={16} /> Ajouter à la liste</button>
-                    </form>
-                  </section>
-                  <section className="form-panel">
-                    <div className="panel-title"><span className="panel-icon mint"><Users size={18} /></span><div><h3>Créer un accès fournisseur</h3><p>Créer un compte de connexion sécurisé</p></div></div>
-                    <form className="stack-form compact" onSubmit={createSupplier}>
-                      <label>Adresse e-mail<input type="email" value={newSupplier.email} onChange={(event) => setNewSupplier({ ...newSupplier, email: event.target.value })} required /></label>
-                      <label>Mot de passe temporaire<input type="password" minLength={12} value={newSupplier.password} onChange={(event) => setNewSupplier({ ...newSupplier, password: event.target.value })} required /><small>12 caractères minimum</small></label>
-                      <button className="button button-dark" disabled={busy}><Plus size={16} /> Créer le compte</button>
-                    </form>
-                  </section>
-                  <section className="form-panel">
                     <div className="panel-title"><span className="panel-icon yellow"><PackagePlus size={18} /></span><div><h3>Nouvelle référence</h3><p>Attribuer le sample à un fournisseur</p></div></div>
                     <form className="stack-form compact" onSubmit={createSample}>
                       <label>Référence<input value={newReference.reference} onChange={(event) => setNewReference({ ...newReference, reference: event.target.value })} placeholder="Ex. SAMPLE-002" maxLength={100} required /></label>
@@ -459,9 +441,7 @@ function App() {
                           value={newReference.supplierSelection}
                           onChange={(event) => {
                             const selection = event.target.value;
-                            if (selection === "__new__") {
-                              setNewReference({ ...newReference, supplierId: "", supplierName: "", supplierSelection: selection });
-                            } else if (selection.startsWith("named:")) {
+                            if (selection.startsWith("named:")) {
                               setNewReference({ ...newReference, supplierId: "", supplierName: selection.slice(6), supplierSelection: selection });
                             } else {
                               setNewReference({ ...newReference, supplierId: selection.startsWith("account:") ? selection.slice(8) : "", supplierName: "", supplierSelection: selection });
@@ -476,19 +456,8 @@ function App() {
                           ) : (
                             <option key={`named:${supplier.name}`} value={`named:${supplier.name}`}>{supplier.name}</option>
                           ))}
-                          <option value="__new__">+ Ajouter un fournisseur</option>
                         </select>
                       </label>
-                      {newReference.supplierSelection === "__new__" && (
-                        <label>Nom du fournisseur
-                          <input
-                            value={newReference.supplierName}
-                            onChange={(event) => setNewReference({ ...newReference, supplierName: event.target.value })}
-                            maxLength={150}
-                            required
-                          />
-                        </label>
-                      )}
                       <button className="button button-dark" disabled={busy}><Plus size={16} /> Créer la référence</button>
                     </form>
                   </section>
@@ -680,6 +649,45 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
         <button className="icon-button delete-icon" type="button" aria-label={`Supprimer ${sample.reference}`} title="Supprimer" onClick={() => onDelete(sample)} disabled={busy}><Trash2 size={15} /></button>
       </div>
     </form>
+  );
+}
+
+function SupplierDirectory({ suppliers, newSupplier, setNewSupplier, saveSupplier, busy }) {
+  return (
+    <section className="supplier-directory-page">
+      <div className="section-heading">
+        <div><p className="eyebrow">ANNUAIRE</p><h2>Fournisseurs</h2></div>
+        <span className="result-count">{suppliers.length} fournisseur{suppliers.length > 1 ? "s" : ""}</span>
+      </div>
+      <div className="supplier-directory-grid">
+        <section className="form-panel supplier-entry-panel">
+          <div className="panel-title"><span className="panel-icon mint"><Plus size={18} /></span><div><h3>Ajouter un fournisseur</h3><p>Enregistrer ses coordonnées dans l’annuaire</p></div></div>
+          <form className="stack-form compact" onSubmit={saveSupplier}>
+            <label>Nom du fournisseur / entreprise<input autoComplete="organization" maxLength={150} value={newSupplier.name} onChange={(event) => setNewSupplier({ ...newSupplier, name: event.target.value })} required /></label>
+            <div className="field-grid">
+              <label className="form-field">Prénom du contact<input autoComplete="given-name" maxLength={100} value={newSupplier.firstName} onChange={(event) => setNewSupplier({ ...newSupplier, firstName: event.target.value })} required /></label>
+              <label className="form-field">Nom du contact<input autoComplete="family-name" maxLength={100} value={newSupplier.lastName} onChange={(event) => setNewSupplier({ ...newSupplier, lastName: event.target.value })} required /></label>
+            </div>
+            <label>Adresse e-mail<input type="email" autoComplete="email" maxLength={254} value={newSupplier.email} onChange={(event) => setNewSupplier({ ...newSupplier, email: event.target.value })} required /></label>
+            <label>Numéro de téléphone international<input type="tel" autoComplete="tel" placeholder="+33 6 12 34 56 78" maxLength={30} value={newSupplier.phone} onChange={(event) => setNewSupplier({ ...newSupplier, phone: event.target.value })} required /><small>Inclure l’indicatif international, par exemple +33.</small></label>
+            <button className="button button-dark" disabled={busy}><Plus size={16} /> {busy ? "Enregistrement…" : "Enregistrer le fournisseur"}</button>
+          </form>
+        </section>
+        <div className="supplier-directory-list">
+          {suppliers.length === 0 ? <EmptyState text="Aucun fournisseur dans l’annuaire." /> : suppliers.map((supplier) => (
+            <article className="supplier-contact-card" key={supplier.id ? `account:${supplier.id}` : `directory:${supplier.name}`}>
+              <span className="sample-icon"><Users size={17} /></span>
+              <div className="supplier-contact-info">
+                <strong>{supplier.name || supplier.company || "Fournisseur sans nom"}</strong>
+                <span>{[supplier.first_name, supplier.last_name].filter(Boolean).join(" ") || "Contact non renseigné"}</span>
+                {supplier.email && <a href={`mailto:${supplier.email}`}>{supplier.email}</a>}
+                {supplier.phone && <a href={`tel:${supplier.phone}`}>{supplier.phone}</a>}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
