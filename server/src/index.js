@@ -45,6 +45,7 @@ function presentSample(row) {
     renvoye: row.renvoye ? "YES" : "NO",
     dateRenvoi: row.date_renvoi,
     updatedAt: row.updated_at,
+    deletedAt: row.deleted_at || null,
   };
 }
 
@@ -207,9 +208,23 @@ app.get("/api/samples", requireAuth, async (request, response, next) => {
     const result = await pool.query(
       `SELECT s.*, u.email AS supplier_email
        FROM samples s LEFT JOIN users u ON u.id = s.supplier_id
-       ${supplierOnly ? "WHERE s.supplier_id = $1" : ""}
+       WHERE s.deleted_at IS NULL ${supplierOnly ? "AND s.supplier_id = $1" : ""}
        ORDER BY s.created_at DESC`,
       supplierOnly ? [request.user.sub] : []
+    );
+    return response.json({ samples: result.rows.map(presentSample) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get("/api/samples/history", requireAuth, requireRole("manager"), async (_request, response, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT s.*, u.email AS supplier_email
+       FROM samples s LEFT JOIN users u ON u.id = s.supplier_id
+       WHERE s.deleted_at IS NOT NULL
+       ORDER BY s.deleted_at DESC, s.created_at DESC`
     );
     return response.json({ samples: result.rows.map(presentSample) });
   } catch (error) {
@@ -255,6 +270,116 @@ app.post("/api/samples", requireAuth, requireRole("manager"), async (request, re
   }
 });
 
+app.patch("/api/manager/samples/:id", requireAuth, requireRole("manager"), async (request, response, next) => {
+  try {
+    const id = Number(request.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) return response.status(400).json({ error: "Identifiant invalide." });
+    const body = request.body;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return response.status(400).json({ error: "Corps de requête invalide." });
+    }
+
+    const allowed = new Set([...Object.keys(sampleFields), "supplierId", "supplierName"]);
+    const keys = Object.keys(body);
+    if (!keys.length || keys.some((key) => !allowed.has(key))) {
+      return response.status(400).json({ error: "Champs de suivi invalides." });
+    }
+    if ("disponible" in body && body.disponible !== null && body.disponible !== "" && !["YES", "NO"].includes(body.disponible)) {
+      return response.status(400).json({ error: "La disponibilité doit être YES ou NO." });
+    }
+    if ("renvoye" in body && !["YES", "NO"].includes(body.renvoye)) {
+      return response.status(400).json({ error: "Le statut de renvoi doit être YES ou NO." });
+    }
+    for (const key of ["dateDemande", "dateDisponibilite", "dateEnvoi", "dateReception", "dateRenvoi"]) {
+      if (key in body && !isOptionalDate(body[key])) {
+        return response.status(400).json({ error: `Format de date invalide pour ${key}.` });
+      }
+    }
+
+    const currentResult = await pool.query(
+      "SELECT * FROM samples WHERE id = $1 AND deleted_at IS NULL",
+      [id]
+    );
+    if (!currentResult.rowCount) return response.status(404).json({ error: "Sample introuvable." });
+    const values = { ...currentResult.rows[0] };
+    for (const [key, column] of Object.entries(sampleFields)) {
+      if (key in body) values[column] = key === "renvoye" ? body[key] === "YES" : (body[key] || null);
+    }
+    if (values.disponible === "NO" && !values.date_disponibilite) {
+      return response.status(400).json({ error: "Indiquez la date de disponibilité prévue si le sample n'est pas disponible." });
+    }
+    if (values.disponible !== "NO") values.date_disponibilite = null;
+    if (!values.renvoye) values.date_renvoi = null;
+    if (values.renvoye && !values.date_renvoi) {
+      return response.status(400).json({ error: "Indiquez la date de renvoi si le sample a été renvoyé." });
+    }
+
+    let supplierId = values.supplier_id;
+    let supplierName = values.supplier_name;
+    if ("supplierId" in body || "supplierName" in body) {
+      supplierId = body.supplierId ? Number(body.supplierId) : null;
+      supplierName = String(body.supplierName || "").trim() || null;
+      if (supplierId !== null && (!Number.isSafeInteger(supplierId) || supplierId < 1)) {
+        return response.status(400).json({ error: "Fournisseur invalide." });
+      }
+      if (supplierId !== null && supplierName) {
+        return response.status(400).json({ error: "Choisissez un compte fournisseur ou un nom, pas les deux." });
+      }
+      if (supplierId !== null) {
+        const supplierResult = await pool.query(
+          "SELECT id FROM users WHERE id = $1 AND role = 'supplier'",
+          [supplierId]
+        );
+        if (!supplierResult.rowCount) return response.status(400).json({ error: "Fournisseur introuvable." });
+      }
+      if (supplierName) {
+        const supplierResult = await pool.query(
+          "SELECT name FROM supplier_directory WHERE LOWER(name) = LOWER($1)",
+          [supplierName]
+        );
+        if (!supplierResult.rowCount) return response.status(400).json({ error: "Fournisseur introuvable dans la liste." });
+        supplierName = supplierResult.rows[0].name;
+      }
+    }
+
+    const updatedResult = await pool.query(
+      `UPDATE samples SET supplier_id = $1, supplier_name = $2, date_demande = $3,
+         disponible = $4, date_disponibilite = $5, date_envoi = $6,
+         date_reception = $7, renvoye = $8, date_renvoi = $9, updated_at = NOW()
+       WHERE id = $10 AND deleted_at IS NULL`,
+      [supplierId, supplierName, values.date_demande, values.disponible,
+       values.date_disponibilite, values.date_envoi, values.date_reception,
+       values.renvoye, values.date_renvoi, id]
+    );
+    if (!updatedResult.rowCount) return response.status(404).json({ error: "Sample introuvable." });
+    const result = await pool.query(
+      `SELECT s.*, u.email AS supplier_email
+       FROM samples s LEFT JOIN users u ON u.id = s.supplier_id
+       WHERE s.id = $1`,
+      [id]
+    );
+    return response.json({ sample: presentSample(result.rows[0]) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete("/api/samples/:id", requireAuth, requireRole("manager"), async (request, response, next) => {
+  try {
+    const id = Number(request.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) return response.status(400).json({ error: "Identifiant invalide." });
+    const result = await pool.query(
+      `UPDATE samples SET deleted_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
+      [id]
+    );
+    if (!result.rowCount) return response.status(404).json({ error: "Référence introuvable." });
+    return response.json({ success: true });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.patch("/api/samples/:id", requireAuth, requireRole("supplier"), async (request, response, next) => {
   try {
     const id = Number(request.params.id);
@@ -281,7 +406,7 @@ app.patch("/api/samples/:id", requireAuth, requireRole("supplier"), async (reque
     }
 
     const currentResult = await pool.query(
-      "SELECT * FROM samples WHERE id = $1 AND supplier_id = $2",
+      "SELECT * FROM samples WHERE id = $1 AND supplier_id = $2 AND deleted_at IS NULL",
       [id, request.user.sub]
     );
     if (!currentResult.rowCount) return response.status(404).json({ error: "Sample introuvable." });
@@ -301,7 +426,7 @@ app.patch("/api/samples/:id", requireAuth, requireRole("supplier"), async (reque
     const result = await pool.query(
       `UPDATE samples SET date_demande = $1, disponible = $2, date_disponibilite = $3,
          date_envoi = $4, date_reception = $5, renvoye = $6, date_renvoi = $7, updated_at = NOW()
-       WHERE id = $8 AND supplier_id = $9 RETURNING *`,
+       WHERE id = $8 AND supplier_id = $9 AND deleted_at IS NULL RETURNING *`,
       [values.date_demande, values.disponible, values.date_disponibilite,
        values.date_envoi, values.date_reception, values.renvoye,
        values.date_renvoi, id, request.user.sub]

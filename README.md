@@ -25,6 +25,9 @@ Le script de création du compte gestionnaire demande les identifiants par varia
 - Création de compte depuis l'accueil avec prénom, nom, e-mail et mot de passe (12 caractères minimum). Un fournisseur renseigne son entreprise; un référant indique son poste et est rattaché à Lacoste.
 - Lors de la création d'une référence, un référant peut choisir un compte fournisseur existant ou ajouter un nom d'entreprise à l'annuaire; ce nom n'a pas d'accès de connexion.
 - Un gestionnaire crée une référence unique.
+- Les noms de fournisseurs ajoutés lors de la création d'une référence sont enregistrés dans l'annuaire et réutilisables.
+- Le gestionnaire peut modifier les données directement dans les lignes du suivi. La suppression d'une référence l'archive dans l'historique sans effacer ses données.
+- Les pages « Suivi » et « Historique » proposent des filtres par valeurs pour chaque colonne.
 - Un fournisseur connecté consulte les références et renseigne la date de demande, la disponibilité, la date de disponibilité prévue si `NO`, les dates d'envoi et de réception, le statut de renvoi et sa date si `YES`.
 - Les données sont persistées dans PostgreSQL.
 
@@ -34,7 +37,10 @@ Le script de création du compte gestionnaire demande les identifiants par varia
 - `POST /api/auth/register` : création de compte fournisseur ou référant Lacoste.
 - `GET /api/auth/me` : utilisateur courant (JWT requis).
 - `GET /api/samples` : liste des samples (JWT requis).
+- `GET /api/samples/history` : références archivées (gestionnaire uniquement).
 - `POST /api/samples` : créer une référence (manager uniquement).
+- `PATCH /api/manager/samples/:id` : modifier le suivi ou le fournisseur (manager uniquement).
+- `DELETE /api/samples/:id` : archiver une référence (manager uniquement).
 - `PATCH /api/samples/:id` : modifier les champs de suivi (supplier uniquement).
 - `GET /api/health` : état de l'API.
 

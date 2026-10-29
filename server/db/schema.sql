@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS samples (
   date_reception DATE,
   renvoye BOOLEAN NOT NULL DEFAULT FALSE,
   date_renvoi DATE,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT samples_reference_not_blank CHECK (LENGTH(TRIM(reference)) > 0),
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS samples (
 );
 
 ALTER TABLE samples ADD COLUMN IF NOT EXISTS supplier_name TEXT;
+ALTER TABLE samples ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS samples_reference_lower_unique ON samples (LOWER(reference));
 CREATE INDEX IF NOT EXISTS samples_supplier_id_idx ON samples (supplier_id);

@@ -6,11 +6,13 @@ import {
   Check,
   CircleHelp,
   Factory,
+  ListFilter,
   LogOut,
   PackagePlus,
   Plus,
   Save,
   ShieldCheck,
+  Trash2,
   Users,
 } from "lucide-react";
 
@@ -50,7 +52,11 @@ function App() {
   const [token, setToken] = useState(() => localStorage.getItem("sample-token") || "");
   const [user, setUser] = useState(null);
   const [samples, setSamples] = useState([]);
+  const [historySamples, setHistorySamples] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [activeView, setActiveView] = useState("suivi");
+  const [sampleFilters, setSampleFilters] = useState({});
+  const [historyFilters, setHistoryFilters] = useState({});
   const [selectedId, setSelectedId] = useState("");
   const [followup, setFollowup] = useState(emptyFollowup);
   const [credentials, setCredentials] = useState({ email: "", password: "" });
@@ -78,8 +84,12 @@ function App() {
     const { samples: sampleRows } = await api("/api/samples", authToken);
     setSamples(sampleRows);
     if (currentUser.role === "manager") {
-      const { suppliers: supplierRows } = await api("/api/users/suppliers", authToken);
+      const [{ suppliers: supplierRows }, { samples: historyRows }] = await Promise.all([
+        api("/api/users/suppliers", authToken),
+        api("/api/samples/history", authToken),
+      ]);
       setSuppliers(supplierRows);
+      setHistorySamples(historyRows);
     }
     setSelectedId((current) => sampleRows.some((sample) => String(sample.id) === current)
       ? current
@@ -169,8 +179,10 @@ function App() {
     setToken("");
     setUser(null);
     setSamples([]);
+    setHistorySamples([]);
     setSuppliers([]);
     setSelectedId("");
+    setActiveView("suivi");
     setMessage(null);
   }
 
@@ -229,6 +241,38 @@ function App() {
       });
       setSamples((current) => current.map((sample) => sample.id === result.sample.id ? { ...sample, ...result.sample } : sample));
       setMessage({ type: "success", text: "Suivi enregistré." });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveManagerSample(sampleId, changes) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api(`/api/manager/samples/${sampleId}`, token, {
+        method: "PATCH",
+        body: JSON.stringify(changes),
+      });
+      setSamples((current) => current.map((sample) => sample.id === result.sample.id ? result.sample : sample));
+      setMessage({ type: "success", text: "Ligne mise à jour." });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteSample(sample) {
+    if (!window.confirm(`Supprimer la référence ${sample.reference} ? Elle restera consultable dans l'historique.`)) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api(`/api/samples/${sample.id}`, token, { method: "DELETE" });
+      await loadWorkspace(token, user);
+      setMessage({ type: "success", text: "Référence déplacée dans l'historique." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -313,96 +357,287 @@ function App() {
 
       <main className="main-area" id="top">
         <header className="page-header">
-          <div><p className="eyebrow">{manager ? "GESTION FOURNISSEURS" : "PORTAIL FOURNISSEUR"}</p><h1>Suivi des échantillons</h1></div>
+          <div><p className="eyebrow">{manager ? "GESTION FOURNISSEURS" : "PORTAIL FOURNISSEUR"}</p><h1>{manager && activeView === "historique" ? "Historique des échantillons" : "Suivi des échantillons"}</h1></div>
           <div className="header-right"><span className="connection"><span /> Connecté</span><span className="header-date">{new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date())}</span></div>
         </header>
+        {manager && (
+          <nav className="view-tabs" aria-label="Pages de suivi">
+            <button type="button" className={activeView === "suivi" ? "active" : ""} onClick={() => setActiveView("suivi")}>SUIVI</button>
+            <button type="button" className={activeView === "historique" ? "active" : ""} onClick={() => setActiveView("historique")}>
+              HISTORIQUE <span>{historySamples.length}</span>
+            </button>
+          </nav>
+        )}
         {message && <Message message={message} />}
 
         {manager ? (
-          <>
-            <section className="summary-row">
-              <Summary icon={<Boxes size={18} />} label="Références" value={samples.length} tone="mint" />
-              <Summary icon={<Check size={18} />} label="Suivis renseignés" value={completedCount} tone="yellow" />
-              <Summary icon={<Users size={18} />} label="Fournisseurs" value={suppliers.length} tone="coral" />
+          activeView === "historique" ? (
+            <section className="manager-page">
+              <div className="section-heading"><div><p className="eyebrow">ARCHIVES</p><h2>Références supprimées</h2></div><span className="result-count">{historySamples.length} au total</span></div>
+              {historySamples.length === 0 ? <EmptyState text="Aucune référence supprimée." /> : (
+                <SampleTable rows={historySamples} suppliers={suppliers} history filters={historyFilters} setFilters={setHistoryFilters} />
+              )}
             </section>
-            <section className="workspace-grid">
-              <div className="primary-column">
-                <div className="section-heading"><div><p className="eyebrow">VUE GÉNÉRALE</p><h2>Références récentes</h2></div><span className="result-count">{samples.length} au total</span></div>
-                {samples.length === 0 ? <EmptyState text="Aucune référence pour le moment." /> : (
-                  <div className="sample-table">
-                    <div className="table-head"><span>RÉFÉRENCE</span><span>FOURNISSEUR</span><span>DEMANDE</span><span>DISPONIBILITÉ</span><span>ENVOI</span><span>RÉCEPTION</span><span>RENVOI</span></div>
-                    {samples.map((sample) => <div className="table-row" key={sample.id}>
-                      <strong className="ref-cell">{sample.reference}</strong>
-                      <span>{sample.supplierName || sample.supplierEmail || <em>Non attribué</em>}</span>
-                      <span>{dateLabel(sample.dateDemande)}</span>
-                      <span className="status-detail"><Status value={sample.disponible} />{sample.disponible === "NO" && <small>Prévue · {dateLabel(sample.dateDisponibilite)}</small>}</span>
-                      <span>{dateLabel(sample.dateEnvoi)}</span>
-                      <span>{dateLabel(sample.dateReception)}</span>
-                      <span className="status-detail"><Status value={sample.renvoye} />{sample.renvoye === "YES" && <small>{dateLabel(sample.dateRenvoi)}</small>}</span>
-                    </div>)}
-                  </div>
-                )}
-              </div>
-              <aside className="forms-column">
-                <section className="form-panel">
-                  <div className="panel-title"><span className="panel-icon mint"><Users size={18} /></span><div><h3>Ajouter un fournisseur</h3><p>Créer son accès sécurisé</p></div></div>
-                  <form className="stack-form compact" onSubmit={createSupplier}>
-                    <label>Adresse e-mail<input type="email" value={newSupplier.email} onChange={(event) => setNewSupplier({ ...newSupplier, email: event.target.value })} required /></label>
-                    <label>Mot de passe temporaire<input type="password" minLength={12} value={newSupplier.password} onChange={(event) => setNewSupplier({ ...newSupplier, password: event.target.value })} required /><small>12 caractères minimum</small></label>
-                    <button className="button button-dark" disabled={busy}><Plus size={16} /> Créer le compte</button>
-                  </form>
-                </section>
-                <section className="form-panel">
-                  <div className="panel-title"><span className="panel-icon yellow"><PackagePlus size={18} /></span><div><h3>Nouvelle référence</h3><p>Attribuer le sample à un fournisseur</p></div></div>
-                  <form className="stack-form compact" onSubmit={createSample}>
-                    <label>Référence<input value={newReference.reference} onChange={(event) => setNewReference({ ...newReference, reference: event.target.value })} placeholder="Ex. SAMPLE-002" maxLength={100} required /></label>
-                    <label>Fournisseur
-                      <select
-                        value={newReference.supplierSelection}
-                        onChange={(event) => {
-                          const selection = event.target.value;
-                          if (selection === "__new__") {
-                            setNewReference({ ...newReference, supplierId: "", supplierName: "", supplierSelection: selection });
-                          } else if (selection.startsWith("named:")) {
-                            setNewReference({ ...newReference, supplierId: "", supplierName: selection.slice(6), supplierSelection: selection });
-                          } else {
-                            setNewReference({ ...newReference, supplierId: selection.startsWith("account:") ? selection.slice(8) : "", supplierName: "", supplierSelection: selection });
-                          }
-                        }}
-                      >
-                        <option value="">Non attribué</option>
-                        {suppliers.map((supplier) => supplier.id ? (
-                          <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
-                            {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
-                          </option>
-                        ) : (
-                          <option key={`named:${supplier.name}`} value={`named:${supplier.name}`}>{supplier.name}</option>
-                        ))}
-                        <option value="__new__">+ Ajouter un fournisseur</option>
-                      </select>
-                    </label>
-                    {newReference.supplierSelection === "__new__" && (
-                      <label>Nom du fournisseur
-                        <input
-                          value={newReference.supplierName}
-                          onChange={(event) => setNewReference({ ...newReference, supplierName: event.target.value })}
-                          maxLength={150}
-                          required
-                        />
+          ) : (
+            <>
+              <section className="summary-row">
+                <Summary icon={<Boxes size={18} />} label="Références" value={samples.length} tone="mint" />
+                <Summary icon={<Check size={18} />} label="Suivis renseignés" value={completedCount} tone="yellow" />
+                <Summary icon={<Users size={18} />} label="Fournisseurs" value={suppliers.length} tone="coral" />
+              </section>
+              <section className="workspace-grid">
+                <div className="primary-column">
+                  <div className="section-heading"><div><p className="eyebrow">VUE GÉNÉRALE</p><h2>Références récentes</h2></div><span className="result-count">{samples.length} au total</span></div>
+                  {samples.length === 0 ? <EmptyState text="Aucune référence pour le moment." /> : (
+                    <SampleTable
+                      rows={samples}
+                      suppliers={suppliers}
+                      filters={sampleFilters}
+                      setFilters={setSampleFilters}
+                      onSave={saveManagerSample}
+                      onDelete={deleteSample}
+                      busy={busy}
+                    />
+                  )}
+                </div>
+                <aside className="forms-column">
+                  <section className="form-panel">
+                    <div className="panel-title"><span className="panel-icon mint"><Users size={18} /></span><div><h3>Ajouter un fournisseur</h3><p>Créer son accès sécurisé</p></div></div>
+                    <form className="stack-form compact" onSubmit={createSupplier}>
+                      <label>Adresse e-mail<input type="email" value={newSupplier.email} onChange={(event) => setNewSupplier({ ...newSupplier, email: event.target.value })} required /></label>
+                      <label>Mot de passe temporaire<input type="password" minLength={12} value={newSupplier.password} onChange={(event) => setNewSupplier({ ...newSupplier, password: event.target.value })} required /><small>12 caractères minimum</small></label>
+                      <button className="button button-dark" disabled={busy}><Plus size={16} /> Créer le compte</button>
+                    </form>
+                  </section>
+                  <section className="form-panel">
+                    <div className="panel-title"><span className="panel-icon yellow"><PackagePlus size={18} /></span><div><h3>Nouvelle référence</h3><p>Attribuer le sample à un fournisseur</p></div></div>
+                    <form className="stack-form compact" onSubmit={createSample}>
+                      <label>Référence<input value={newReference.reference} onChange={(event) => setNewReference({ ...newReference, reference: event.target.value })} placeholder="Ex. SAMPLE-002" maxLength={100} required /></label>
+                      <label>Fournisseur
+                        <select
+                          value={newReference.supplierSelection}
+                          onChange={(event) => {
+                            const selection = event.target.value;
+                            if (selection === "__new__") {
+                              setNewReference({ ...newReference, supplierId: "", supplierName: "", supplierSelection: selection });
+                            } else if (selection.startsWith("named:")) {
+                              setNewReference({ ...newReference, supplierId: "", supplierName: selection.slice(6), supplierSelection: selection });
+                            } else {
+                              setNewReference({ ...newReference, supplierId: selection.startsWith("account:") ? selection.slice(8) : "", supplierName: "", supplierSelection: selection });
+                            }
+                          }}
+                        >
+                          <option value="">Non attribué</option>
+                          {suppliers.map((supplier) => supplier.id ? (
+                            <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
+                              {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
+                            </option>
+                          ) : (
+                            <option key={`named:${supplier.name}`} value={`named:${supplier.name}`}>{supplier.name}</option>
+                          ))}
+                          <option value="__new__">+ Ajouter un fournisseur</option>
+                        </select>
                       </label>
-                    )}
-                    <button className="button button-dark" disabled={busy}><Plus size={16} /> Créer la référence</button>
-                  </form>
-                </section>
-              </aside>
-            </section>
-          </>
+                      {newReference.supplierSelection === "__new__" && (
+                        <label>Nom du fournisseur
+                          <input
+                            value={newReference.supplierName}
+                            onChange={(event) => setNewReference({ ...newReference, supplierName: event.target.value })}
+                            maxLength={150}
+                            required
+                          />
+                        </label>
+                      )}
+                      <button className="button button-dark" disabled={busy}><Plus size={16} /> Créer la référence</button>
+                    </form>
+                  </section>
+                </aside>
+              </section>
+            </>
+          )
         ) : (
           <SupplierWorkspace samples={samples} selectedId={selectedId} setSelectedId={setSelectedId} selectedSample={selectedSample} followup={followup} setFollowup={setFollowup} saveFollowup={saveFollowup} busy={busy} />
         )}
         <footer className="page-footer"><span>Sample Desk · Suivi fournisseurs</span><span><CircleHelp size={14} /> Les modifications sont enregistrées dans la base partagée.</span></footer>
       </main>
     </div>
+  );
+}
+
+const tableColumns = [
+  { key: "reference", label: "RÉFÉRENCE" },
+  { key: "supplier", label: "FOURNISSEUR" },
+  { key: "demande", label: "DEMANDE" },
+  { key: "disponibilite", label: "DISPONIBILITÉ" },
+  { key: "envoi", label: "ENVOI" },
+  { key: "reception", label: "RÉCEPTION" },
+  { key: "renvoi", label: "RENVOI" },
+];
+
+function filterValue(sample, key) {
+  switch (key) {
+    case "reference": return sample.reference;
+    case "supplier": return sample.supplierName || sample.supplierEmail || "Non attribué";
+    case "demande": return dateLabel(sample.dateDemande);
+    case "disponibilite": return sample.disponible || "À renseigner";
+    case "envoi": return dateLabel(sample.dateEnvoi);
+    case "reception": return dateLabel(sample.dateReception);
+    case "renvoi": return sample.renvoye || "NO";
+    case "archive": return sample.deletedAt ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(sample.deletedAt)) : "Inconnu";
+    default: return "";
+  }
+}
+
+function SampleTable({ rows, suppliers, history = false, filters, setFilters, onSave, onDelete, busy = false }) {
+  const columns = history ? [...tableColumns, { key: "archive", label: "SUPPRIMÉE LE" }] : tableColumns;
+  const options = Object.fromEntries(columns.map(({ key }) => [
+    key,
+    [...new Set(rows.map((sample) => filterValue(sample, key)))].sort((a, b) => a.localeCompare(b, "fr")),
+  ]));
+  const visibleRows = rows.filter((sample) => columns.every(({ key }) => {
+    const selected = filters[key];
+    return selected === undefined || selected.includes(filterValue(sample, key));
+  }));
+
+  return (
+    <div className="sample-table">
+      <div className={`table-head ${history ? "history-table" : ""}`}>
+        {columns.map(({ key, label }) => (
+          <div className="table-heading" key={key}>
+            <span>{label}</span>
+            <ColumnFilter
+              label={label}
+              values={options[key]}
+              selected={filters[key]}
+              onChange={(selected) => setFilters((current) => {
+                const next = { ...current };
+                if (selected === undefined) delete next[key];
+                else next[key] = selected;
+                return next;
+              })}
+            />
+          </div>
+        ))}
+        {!history && <span className="row-actions-heading">ACTIONS</span>}
+      </div>
+      {visibleRows.length === 0 ? (
+        <div className="table-empty">Aucune ligne ne correspond aux filtres.</div>
+      ) : visibleRows.map((sample) => history ? (
+        <div className="table-row history-table" key={sample.id}>
+          <strong className="ref-cell">{sample.reference}</strong>
+          <span>{sample.supplierName || sample.supplierEmail || <em>Non attribué</em>}</span>
+          <span>{dateLabel(sample.dateDemande)}</span>
+          <span className="status-detail"><Status value={sample.disponible} />{sample.disponible === "NO" && sample.dateDisponibilite && <small>Prévue · {dateLabel(sample.dateDisponibilite)}</small>}</span>
+          <span>{dateLabel(sample.dateEnvoi)}</span>
+          <span>{dateLabel(sample.dateReception)}</span>
+          <span className="status-detail"><Status value={sample.renvoye} />{sample.renvoye === "YES" && sample.dateRenvoi && <small>{dateLabel(sample.dateRenvoi)}</small>}</span>
+          <span>{filterValue(sample, "archive")}</span>
+        </div>
+      ) : (
+        <ManagerSampleRow key={sample.id} sample={sample} suppliers={suppliers} onSave={onSave} onDelete={onDelete} busy={busy} />
+      ))}
+    </div>
+  );
+}
+
+function ColumnFilter({ label, values, selected, onChange }) {
+  const checkedValues = selected === undefined ? values : selected;
+
+  function toggle(value) {
+    const current = new Set(checkedValues);
+    if (current.has(value)) current.delete(value);
+    else current.add(value);
+    onChange([...current]);
+  }
+
+  return (
+    <details className={`column-filter ${selected === undefined ? "" : "filtered"}`}>
+      <summary aria-label={`Filtrer ${label}`} title={`Filtrer ${label}`}><ListFilter size={13} /></summary>
+      <div className="filter-menu">
+        <button type="button" className="filter-clear" onClick={() => onChange(undefined)}>Tout afficher</button>
+        {values.map((value) => (
+          <label key={value}>
+            <input type="checkbox" checked={checkedValues.includes(value)} onChange={() => toggle(value)} />
+            <span>{value}</span>
+          </label>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
+  const [draft, setDraft] = useState({});
+  const supplierSelection = sample.supplierId
+    ? `account:${sample.supplierId}`
+    : sample.supplierName ? `named:${sample.supplierName}` : "";
+
+  useEffect(() => {
+    setDraft({
+      supplierSelection,
+      dateDemande: sample.dateDemande || "",
+      disponible: sample.disponible || "",
+      dateDisponibilite: sample.dateDisponibilite || "",
+      dateEnvoi: sample.dateEnvoi || "",
+      dateReception: sample.dateReception || "",
+      renvoye: sample.renvoye || "NO",
+      dateRenvoi: sample.dateRenvoi || "",
+    });
+  }, [sample, supplierSelection]);
+
+  function update(key, value) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function submit(event) {
+    event.preventDefault();
+    const account = draft.supplierSelection.startsWith("account:");
+    onSave(sample.id, {
+      supplierId: account ? draft.supplierSelection.slice(8) : null,
+      supplierName: draft.supplierSelection.startsWith("named:") ? draft.supplierSelection.slice(6) : null,
+      dateDemande: draft.dateDemande,
+      disponible: draft.disponible,
+      dateDisponibilite: draft.dateDisponibilite,
+      dateEnvoi: draft.dateEnvoi,
+      dateReception: draft.dateReception,
+      renvoye: draft.renvoye,
+      dateRenvoi: draft.dateRenvoi,
+    });
+  }
+
+  return (
+    <form className="table-row editable-row" onSubmit={submit}>
+      <strong className="ref-cell">{sample.reference}</strong>
+      <select aria-label={`Fournisseur pour ${sample.reference}`} value={draft.supplierSelection || ""} onChange={(event) => update("supplierSelection", event.target.value)}>
+        <option value="">Non attribué</option>
+        {suppliers.map((supplier) => supplier.id ? (
+          <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
+            {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
+          </option>
+        ) : (
+          <option key={`named:${supplier.name}`} value={`named:${supplier.name}`}>{supplier.name}</option>
+        ))}
+      </select>
+      <input aria-label={`Date de demande pour ${sample.reference}`} type="date" value={draft.dateDemande || ""} onChange={(event) => update("dateDemande", event.target.value)} />
+      <div className="row-control-group">
+        <select aria-label={`Disponibilité pour ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => update("disponible", event.target.value)}>
+          <option value="">À renseigner</option><option value="YES">YES</option><option value="NO">NO</option>
+        </select>
+        {draft.disponible === "NO" && <input aria-label={`Date de disponibilité pour ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} required />}
+      </div>
+      <input aria-label={`Date d'envoi pour ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => update("dateEnvoi", event.target.value)} />
+      <input aria-label={`Date de réception pour ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => update("dateReception", event.target.value)} />
+      <div className="row-control-group">
+        <select aria-label={`Statut de renvoi pour ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => update("renvoye", event.target.value)}>
+          <option value="NO">NO</option><option value="YES">YES</option>
+        </select>
+        {draft.renvoye === "YES" && <input aria-label={`Date de renvoi pour ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} required />}
+      </div>
+      <div className="row-actions">
+        <button className="icon-button save-icon" type="submit" aria-label={`Enregistrer ${sample.reference}`} title="Enregistrer" disabled={busy}><Save size={15} /></button>
+        <button className="icon-button delete-icon" type="button" aria-label={`Supprimer ${sample.reference}`} title="Supprimer" onClick={() => onDelete(sample)} disabled={busy}><Trash2 size={15} /></button>
+      </div>
+    </form>
   );
 }
 
