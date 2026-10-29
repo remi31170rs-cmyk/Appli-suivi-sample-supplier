@@ -45,7 +45,20 @@ async function api(path, token, options = {}) {
 
 function dateLabel(value) {
   if (!value) return "À compléter";
-  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`));
+  const date = value instanceof Date
+    ? value
+    : typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)
+      ? new Date(`${value.slice(0, 10)}T00:00:00Z`)
+      : new Date(value);
+  if (Number.isNaN(date.valueOf())) return "Date invalide";
+  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeZone: "UTC" }).format(date);
+}
+
+function dateTimeLabel(value) {
+  if (!value) return "Date inconnue";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.valueOf())) return "Date invalide";
+  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function App() {
@@ -511,7 +524,7 @@ function filterValue(sample, key) {
     case "envoi": return dateLabel(sample.dateEnvoi);
     case "reception": return dateLabel(sample.dateReception);
     case "renvoi": return sample.renvoye || "NO";
-    case "archive": return sample.deletedAt ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(sample.deletedAt)) : "Inconnu";
+    case "archive": return dateTimeLabel(sample.deletedAt);
     default: return "";
   }
 }
