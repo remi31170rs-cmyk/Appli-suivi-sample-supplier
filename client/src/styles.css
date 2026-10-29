@@ -25,6 +25,7 @@ button { cursor: pointer; }
 .fatal-error section { width: min(100%, 520px); border: 1px solid #e2e8e0; border-radius: 5px; padding: 28px; background: #fff; }
 .fatal-error h1 { margin: 0 0 12px; color: var(--ink); font: 700 22px 'Manrope', sans-serif; }
 .fatal-error p { margin: 0 0 20px; color: #68756b; font-size: 13px; line-height: 1.6; }
+.fatal-error pre { overflow-wrap: anywhere; margin: 0 0 20px; border-radius: 3px; padding: 10px; color: #7e4033; background: #fff1eb; font: 12px/1.5 monospace; white-space: pre-wrap; }
 .fatal-error button { min-height: 40px; border: 0; border-radius: 4px; padding: 0 14px; color: white; background: var(--green); font-size: 12px; font-weight: 700; }
 
 .login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(320px, 1.04fr) minmax(380px, .96fr); background: #f7f8f5; }
