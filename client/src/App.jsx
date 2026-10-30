@@ -40,26 +40,26 @@ async function api(path, token, options = {}) {
     },
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || "Une erreur est survenue.");
+  if (!response.ok) throw new Error(result.error || "An error occurred.");
   return result;
 }
 
 function dateLabel(value) {
-  if (!value) return "À compléter";
+  if (!value) return "To be completed";
   const date = value instanceof Date
     ? value
     : typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)
       ? new Date(`${value.slice(0, 10)}T00:00:00Z`)
       : new Date(value);
-  if (Number.isNaN(date.valueOf())) return "Date invalide";
-  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeZone: "UTC" }).format(date);
+  if (Number.isNaN(date.valueOf())) return "Invalid date";
+  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "UTC" }).format(date);
 }
 
 function dateTimeLabel(value) {
-  if (!value) return "Date inconnue";
+  if (!value) return "Unknown date";
   const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.valueOf())) return "Date invalide";
-  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  if (Number.isNaN(date.valueOf())) return "Invalid date";
+  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function App() {
@@ -167,7 +167,7 @@ function App() {
       setUser(result.user);
       setToken(result.token);
       await loadWorkspace(result.token, result.user);
-      setMessage({ type: "success", text: "Connexion réussie." });
+      setMessage({ type: "success", text: "Signed in successfully." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -188,7 +188,7 @@ function App() {
       setUser(result.user);
       setToken(result.token);
       await loadWorkspace(result.token, result.user);
-      setMessage({ type: "success", text: "Compte créé. Bienvenue !" });
+      setMessage({ type: "success", text: "Account created. Welcome!" });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -228,7 +228,7 @@ function App() {
       await loadWorkspace(token, user);
       setNewSupplier({ name: "", firstName: "", lastName: "", email: "", phone: "" });
       setEditingSupplier(null);
-      setMessage({ type: "success", text: editingSupplier ? "Fournisseur modifié." : "Fournisseur enregistré." });
+      setMessage({ type: "success", text: editingSupplier ? "Supplier updated." : "Supplier saved." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -251,7 +251,7 @@ function App() {
       });
       await loadWorkspace(token, user);
       setNewReference({ reference: "", supplierId: "", supplierName: "", supplierSelection: "" });
-      setMessage({ type: "success", text: "Référence créée et attribuée." });
+      setMessage({ type: "success", text: "Reference created and assigned." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -270,7 +270,7 @@ function App() {
         body: JSON.stringify(followup),
       });
       setSamples((current) => current.map((sample) => sample.id === result.sample.id ? { ...sample, ...result.sample } : sample));
-      setMessage({ type: "success", text: "Suivi enregistré." });
+      setMessage({ type: "success", text: "Tracking details saved." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -287,7 +287,7 @@ function App() {
         body: JSON.stringify(changes),
       });
       setSamples((current) => current.map((sample) => sample.id === result.sample.id ? result.sample : sample));
-      setMessage({ type: "success", text: "Ligne mise à jour." });
+      setMessage({ type: "success", text: "Reference updated." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -296,13 +296,13 @@ function App() {
   }
 
   async function deleteSample(sample) {
-    if (!window.confirm(`Supprimer la référence ${sample.reference} ? Elle restera consultable dans l'historique.`)) return;
+    if (!window.confirm(`Delete reference ${sample.reference}? It will remain available in the archive.`)) return;
     setBusy(true);
     setMessage(null);
     try {
       await api(`/api/samples/${sample.id}`, token, { method: "DELETE" });
       await loadWorkspace(token, user);
-      setMessage({ type: "success", text: "Référence déplacée dans l'historique." });
+      setMessage({ type: "success", text: "Reference moved to the archive." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -320,55 +320,55 @@ function App() {
   if (!user) {
     return (
       <main className="login-page">
-        <section className="login-art" aria-label="Suivi des envois fournisseurs">
+        <section className="login-art" aria-label="Supplier sample tracking">
           <div className="art-top"><Boxes size={22} /><span>OPERATIONS / SAMPLE DESK</span></div>
           <div className="art-copy">
             <p className="eyebrow">Supplier sample tracking</p>
-            <h1>Chaque sample,<br />au bon endroit.</h1>
-            <p>Références, disponibilité et acheminement réunis dans un seul suivi partagé.</p>
+            <h1>Every sample,<br />in the right place.</h1>
+            <p>References, availability and delivery in one shared tracking space.</p>
           </div>
           <div className="art-index"><span>01 / 03</span><span>REFERENCE · SHIPMENT · RETURN</span></div>
         </section>
         <section className="login-panel">
           <div className="login-inner">
             <div className="brand-mark"><Factory size={20} /></div>
-            <p className="eyebrow">Espace sécurisé</p>
-            <h2>{showRegistration ? "Créer un compte" : "Connexion"}</h2>
-            <p className="muted">{showRegistration ? "Créez votre accès au suivi des échantillons." : "Connectez-vous à votre espace de suivi fournisseur."}</p>
+            <p className="eyebrow">SECURE WORKSPACE</p>
+            <h2>{showRegistration ? "Create an account" : "Sign in"}</h2>
+            <p className="muted">{showRegistration ? "Create your account to track supplier samples." : "Sign in to your supplier tracking workspace."}</p>
             {message && <Message message={message} />}
             {showRegistration ? (
               <form className="stack-form" onSubmit={submitRegistration}>
                 <div className="field-grid">
-                  <label className="form-field">Prénom<input autoComplete="given-name" maxLength={100} value={registration.firstName} onChange={(event) => setRegistration({ ...registration, firstName: event.target.value })} required /></label>
-                  <label className="form-field">Nom<input autoComplete="family-name" maxLength={100} value={registration.lastName} onChange={(event) => setRegistration({ ...registration, lastName: event.target.value })} required /></label>
+                  <label className="form-field">First name<input autoComplete="given-name" maxLength={100} value={registration.firstName} onChange={(event) => setRegistration({ ...registration, firstName: event.target.value })} required /></label>
+                  <label className="form-field">Last name<input autoComplete="family-name" maxLength={100} value={registration.lastName} onChange={(event) => setRegistration({ ...registration, lastName: event.target.value })} required /></label>
                 </div>
-                <label>Adresse e-mail<input type="email" autoComplete="email" maxLength={254} value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} required /></label>
-                <label>Mot de passe<input type="password" autoComplete="new-password" minLength={12} value={registration.password} onChange={(event) => setRegistration({ ...registration, password: event.target.value })} required /><small>12 caractères minimum</small></label>
-                <label>Type de compte<select value={registration.accountType} onChange={(event) => setRegistration({ ...registration, accountType: event.target.value })}><option value="supplier">Fournisseur</option><option value="referrer">Référant Lacoste</option></select></label>
+                <label>Email address<input type="email" autoComplete="email" maxLength={254} value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} required /></label>
+                <label>Password<input type="password" autoComplete="new-password" minLength={12} value={registration.password} onChange={(event) => setRegistration({ ...registration, password: event.target.value })} required /><small>At least 12 characters</small></label>
+                <label>Account type<select value={registration.accountType} onChange={(event) => setRegistration({ ...registration, accountType: event.target.value })}><option value="supplier">Supplier</option><option value="referrer">Lacoste contact</option></select></label>
                 {registration.accountType === "supplier" ? (
                   <>
-                    <label>Nom de l’entreprise<input autoComplete="organization" maxLength={150} value={registration.company} onChange={(event) => setRegistration({ ...registration, company: event.target.value })} required /></label>
-                    <label>Téléphone international<input type="tel" autoComplete="tel" placeholder="+33 6 12 34 56 78" maxLength={30} value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} required /></label>
+                    <label>Company name<input autoComplete="organization" maxLength={150} value={registration.company} onChange={(event) => setRegistration({ ...registration, company: event.target.value })} required /></label>
+                    <label>International phone number<input type="tel" autoComplete="tel" placeholder="+33 6 12 34 56 78" maxLength={30} value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} required /></label>
                   </>
                 ) : (
                   <>
-                    <label>Poste occupé<input autoComplete="organization-title" maxLength={120} value={registration.jobTitle} onChange={(event) => setRegistration({ ...registration, jobTitle: event.target.value })} required /></label>
-                    <p className="login-note">Entreprise : Lacoste</p>
+                    <label>Job title<input autoComplete="organization-title" maxLength={120} value={registration.jobTitle} onChange={(event) => setRegistration({ ...registration, jobTitle: event.target.value })} required /></label>
+                    <p className="login-note">Company: Lacoste</p>
                   </>
                 )}
-                <button className="button button-dark button-wide" disabled={busy}>{busy ? "Création…" : "Créer mon compte"}<ArrowUpRight size={17} /></button>
+                <button className="button button-dark button-wide" disabled={busy}>{busy ? "Creating…" : "Create account"}<ArrowUpRight size={17} /></button>
               </form>
             ) : (
               <form className="stack-form" onSubmit={submitLogin}>
-                <label>Adresse e-mail<input type="email" autoComplete="username" value={credentials.email} onChange={(event) => setCredentials({ ...credentials, email: event.target.value })} required /></label>
-                <label>Mot de passe<input type="password" autoComplete="current-password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} required /></label>
-                <button className="button button-dark button-wide" disabled={busy}>{busy ? "Connexion…" : "Se connecter"}<ArrowUpRight size={17} /></button>
+                <label>Email address<input type="email" autoComplete="username" value={credentials.email} onChange={(event) => setCredentials({ ...credentials, email: event.target.value })} required /></label>
+                <label>Password<input type="password" autoComplete="current-password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} required /></label>
+                <button className="button button-dark button-wide" disabled={busy}>{busy ? "Signing in…" : "Sign in"}<ArrowUpRight size={17} /></button>
               </form>
             )}
             <button className="login-switch" type="button" onClick={() => { setShowRegistration(!showRegistration); setMessage(null); }}>
-              {showRegistration ? "Vous avez déjà un compte ? Se connecter" : "Pas encore de compte ? Créer un compte"}
+              {showRegistration ? "Already have an account? Sign in" : "New here? Create an account"}
             </button>
-            <p className="login-foot"><ShieldCheck size={15} /> Accès réservé aux comptes autorisés</p>
+            <p className="login-foot"><ShieldCheck size={15} /> Access is restricted to authorised accounts</p>
           </div>
         </section>
       </main>
@@ -379,31 +379,31 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <a className="brand" href="#top"><span className="brand-mark"><Boxes size={20} /></span><span>sample<span className="brand-light">desk</span></span></a>
-        <div className="side-label">ESPACE</div>
+        <div className="side-label">WORKSPACE</div>
         <button type="button" className={`nav-item ${activeView !== "fournisseurs" ? "active" : ""}`} onClick={() => setActiveView("suivi")}>
-          <Boxes size={17} /> Échantillons <span className="nav-count">{samples.length}</span>
+          <Boxes size={17} /> Samples <span className="nav-count">{samples.length}</span>
         </button>
         {manager && (
           <button type="button" className={`nav-item ${activeView === "fournisseurs" ? "active" : ""}`} onClick={() => setActiveView("fournisseurs")}>
-            <Users size={17} /> Fournisseurs <span className="nav-count">{suppliers.length}</span>
+            <Users size={17} /> Suppliers <span className="nav-count">{suppliers.length}</span>
           </button>
         )}
         <div className="sidebar-bottom">
-          <div className="account-card"><span className="avatar">{(user.firstName || user.email).slice(0, 1).toUpperCase()}</span><span className="account-name"><strong>{[user.firstName, user.lastName].filter(Boolean).join(" ") || user.email}</strong><small>{manager ? `Référant · ${user.jobTitle || "Lacoste"}` : `Fournisseur · ${user.company || user.email}`}</small></span></div>
-          <button className="signout" onClick={signOut}><LogOut size={16} /> Déconnexion</button>
+          <div className="account-card"><span className="avatar">{(user.firstName || user.email).slice(0, 1).toUpperCase()}</span><span className="account-name"><strong>{[user.firstName, user.lastName].filter(Boolean).join(" ") || user.email}</strong><small>{manager ? `Manager · ${user.jobTitle || "Lacoste"}` : `Supplier · ${user.company || user.email}`}</small></span></div>
+          <button className="signout" onClick={signOut}><LogOut size={16} /> Sign out</button>
         </div>
       </aside>
 
       <main className="main-area" id="top">
         <header className="page-header">
-          <div><p className="eyebrow">{manager ? "GESTION FOURNISSEURS" : "PORTAIL FOURNISSEUR"}</p><h1>{manager && activeView === "historique" ? "Historique des échantillons" : manager && activeView === "fournisseurs" ? "Gestion des fournisseurs" : "Suivi des échantillons"}</h1></div>
-          <div className="header-right"><span className="connection"><span /> Connecté</span><span className="header-date">{new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date())}</span></div>
+          <div><p className="eyebrow">{manager ? "SAMPLE MANAGEMENT" : "SUPPLIER PORTAL"}</p><h1>{manager && activeView === "historique" ? "Sample archive" : manager && activeView === "fournisseurs" ? "Suppliers" : "Sample tracking"}</h1></div>
+          <div className="header-right"><span className="connection"><span /> Connected</span><span className="header-date">{new Intl.DateTimeFormat("en-GB", { dateStyle: "long" }).format(new Date())}</span></div>
         </header>
         {manager && activeView !== "fournisseurs" && (
-          <nav className="view-tabs" aria-label="Pages de suivi">
-            <button type="button" className={activeView === "suivi" ? "active" : ""} onClick={() => setActiveView("suivi")}>SUIVI</button>
+          <nav className="view-tabs" aria-label="Tracking pages">
+            <button type="button" className={activeView === "suivi" ? "active" : ""} onClick={() => setActiveView("suivi")}>OVERVIEW</button>
             <button type="button" className={activeView === "historique" ? "active" : ""} onClick={() => setActiveView("historique")}>
-              HISTORIQUE <span>{historySamples.length}</span>
+              ARCHIVE <span>{historySamples.length}</span>
             </button>
           </nav>
         )}
@@ -422,22 +422,22 @@ function App() {
             />
           ) : activeView === "historique" ? (
             <section className="manager-page">
-              <div className="section-heading"><div><p className="eyebrow">ARCHIVES</p><h2>Références supprimées</h2></div><span className="result-count">{historySamples.length} au total</span></div>
-              {historySamples.length === 0 ? <EmptyState text="Aucune référence supprimée." /> : (
+              <div className="section-heading"><div><p className="eyebrow">ARCHIVE</p><h2>Archived references</h2></div><span className="result-count">{historySamples.length} total</span></div>
+              {historySamples.length === 0 ? <EmptyState text="No archived references." /> : (
                 <SampleTable rows={historySamples} suppliers={suppliers} history filters={historyFilters} setFilters={setHistoryFilters} />
               )}
             </section>
           ) : (
             <>
               <section className="summary-row">
-                <Summary icon={<Boxes size={18} />} label="Références" value={samples.length} tone="mint" />
-                <Summary icon={<Check size={18} />} label="Suivis renseignés" value={completedCount} tone="yellow" />
-                <Summary icon={<Users size={18} />} label="Fournisseurs" value={suppliers.length} tone="coral" />
+                <Summary icon={<Boxes size={18} />} label="References" value={samples.length} tone="mint" />
+                <Summary icon={<Check size={18} />} label="Tracking completed" value={completedCount} tone="yellow" />
+                <Summary icon={<Users size={18} />} label="Suppliers" value={suppliers.length} tone="coral" />
               </section>
-              <section className="workspace-grid">
+              <section className="workspace-grid manager-overview">
                 <div className="primary-column">
-                  <div className="section-heading"><div><p className="eyebrow">VUE GÉNÉRALE</p><h2>Références récentes</h2></div><span className="result-count">{samples.length} au total</span></div>
-                  {samples.length === 0 ? <EmptyState text="Aucune référence pour le moment." /> : (
+                  <div className="section-heading"><div><p className="eyebrow">GENERAL VIEW</p><h2>Saved references</h2></div><span className="result-count">{samples.length} total</span></div>
+                  {samples.length === 0 ? <EmptyState text="No references have been saved yet." /> : (
                     <SampleTable
                       rows={samples}
                       suppliers={suppliers}
@@ -450,11 +450,11 @@ function App() {
                   )}
                 </div>
                 <aside className="forms-column">
-                  <section className="form-panel">
-                    <div className="panel-title"><span className="panel-icon yellow"><PackagePlus size={18} /></span><div><h3>Nouvelle référence</h3><p>Attribuer le sample à un fournisseur</p></div></div>
+                  <section className="form-panel new-reference-panel">
+                    <div className="panel-title"><span className="panel-icon yellow"><PackagePlus size={18} /></span><div><h3>Create a reference</h3><p>Assign a sample to a supplier</p></div></div>
                     <form className="stack-form compact" onSubmit={createSample}>
-                      <label>Référence<input value={newReference.reference} onChange={(event) => setNewReference({ ...newReference, reference: event.target.value })} placeholder="Ex. SAMPLE-002" maxLength={100} required /></label>
-                      <label>Fournisseur
+                      <label>Reference<input value={newReference.reference} onChange={(event) => setNewReference({ ...newReference, reference: event.target.value })} placeholder="e.g. SAMPLE-002" maxLength={100} required /></label>
+                      <label>Supplier
                         <select
                           value={newReference.supplierSelection}
                           onChange={(event) => {
@@ -466,7 +466,7 @@ function App() {
                             }
                           }}
                         >
-                          <option value="">Non attribué</option>
+                          <option value="">Unassigned</option>
                           {suppliers.map((supplier) => supplier.kind === "account" ? (
                             <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
                               {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
@@ -476,7 +476,7 @@ function App() {
                           ))}
                         </select>
                       </label>
-                      <button className="button button-dark" disabled={busy}><Plus size={16} /> Créer la référence</button>
+                      <button className="button button-dark" disabled={busy}><Plus size={16} /> {busy ? "Creating…" : "Save reference"}</button>
                     </form>
                   </section>
                 </aside>
@@ -486,28 +486,28 @@ function App() {
         ) : (
           <SupplierWorkspace samples={samples} selectedId={selectedId} setSelectedId={setSelectedId} selectedSample={selectedSample} followup={followup} setFollowup={setFollowup} saveFollowup={saveFollowup} busy={busy} />
         )}
-        <footer className="page-footer"><span>Sample Desk · Suivi fournisseurs</span><span><CircleHelp size={14} /> Les modifications sont enregistrées dans la base partagée.</span></footer>
+        <footer className="page-footer"><span>Sample Desk · Supplier tracking</span><span><CircleHelp size={14} /> Changes are saved to the shared database.</span></footer>
       </main>
     </div>
   );
 }
 
 const tableColumns = [
-  { key: "reference", label: "RÉFÉRENCE" },
-  { key: "supplier", label: "FOURNISSEUR" },
-  { key: "demande", label: "DEMANDE" },
-  { key: "disponibilite", label: "DISPONIBILITÉ" },
-  { key: "envoi", label: "ENVOI" },
-  { key: "reception", label: "RÉCEPTION" },
-  { key: "renvoi", label: "RENVOI" },
+  { key: "reference", label: "REFERENCE" },
+  { key: "supplier", label: "SUPPLIER" },
+  { key: "demande", label: "REQUESTED" },
+  { key: "disponibilite", label: "AVAILABILITY" },
+  { key: "envoi", label: "SENT" },
+  { key: "reception", label: "RECEIVED" },
+  { key: "renvoi", label: "RETURNED" },
 ];
 
 function filterValue(sample, key) {
   switch (key) {
     case "reference": return sample.reference;
-    case "supplier": return sample.supplierName || sample.supplierEmail || "Non attribué";
+    case "supplier": return sample.supplierName || sample.supplierEmail || "Unassigned";
     case "demande": return dateLabel(sample.dateDemande);
-    case "disponibilite": return sample.disponible || "À renseigner";
+    case "disponibilite": return sample.disponible || "Not set";
     case "envoi": return dateLabel(sample.dateEnvoi);
     case "reception": return dateLabel(sample.dateReception);
     case "renvoi": return sample.renvoye || "NO";
@@ -517,10 +517,10 @@ function filterValue(sample, key) {
 }
 
 function SampleTable({ rows, suppliers, history = false, filters, setFilters, onSave, onDelete, busy = false }) {
-  const columns = history ? [...tableColumns, { key: "archive", label: "SUPPRIMÉE LE" }] : tableColumns;
+  const columns = history ? [...tableColumns, { key: "archive", label: "ARCHIVED ON" }] : tableColumns;
   const options = Object.fromEntries(columns.map(({ key }) => [
     key,
-    [...new Set(rows.map((sample) => filterValue(sample, key)))].sort((a, b) => a.localeCompare(b, "fr")),
+    [...new Set(rows.map((sample) => filterValue(sample, key)))].sort((a, b) => a.localeCompare(b, "en")),
   ]));
   const visibleRows = rows.filter((sample) => columns.every(({ key }) => {
     const selected = filters[key];
@@ -549,17 +549,17 @@ function SampleTable({ rows, suppliers, history = false, filters, setFilters, on
         {!history && <span className="row-actions-heading">ACTIONS</span>}
       </div>
       {visibleRows.length === 0 ? (
-        <div className="table-empty">Aucune ligne ne correspond aux filtres.</div>
+        <div className="table-empty">No references match the selected filters.</div>
       ) : visibleRows.map((sample) => history ? (
         <div className="table-row history-table" key={sample.id}>
-          <strong className="ref-cell">{sample.reference}</strong>
-          <span>{sample.supplierName || sample.supplierEmail || <em>Non attribué</em>}</span>
-          <span>{dateLabel(sample.dateDemande)}</span>
-          <span className="status-detail"><Status value={sample.disponible} />{sample.disponible === "NO" && sample.dateDisponibilite && <small>Prévue · {dateLabel(sample.dateDisponibilite)}</small>}</span>
-          <span>{dateLabel(sample.dateEnvoi)}</span>
-          <span>{dateLabel(sample.dateReception)}</span>
-          <span className="status-detail"><Status value={sample.renvoye} />{sample.renvoye === "YES" && sample.dateRenvoi && <small>{dateLabel(sample.dateRenvoi)}</small>}</span>
-          <span>{filterValue(sample, "archive")}</span>
+          <div className="table-cell" data-label="Reference"><strong className="ref-cell">{sample.reference}</strong></div>
+          <div className="table-cell" data-label="Supplier">{sample.supplierName || sample.supplierEmail || <em>Unassigned</em>}</div>
+          <div className="table-cell" data-label="Requested">{dateLabel(sample.dateDemande)}</div>
+          <div className="table-cell status-detail" data-label="Availability"><Status value={sample.disponible} />{sample.disponible === "NO" && sample.dateDisponibilite && <small>Expected · {dateLabel(sample.dateDisponibilite)}</small>}</div>
+          <div className="table-cell" data-label="Sent">{dateLabel(sample.dateEnvoi)}</div>
+          <div className="table-cell" data-label="Received">{dateLabel(sample.dateReception)}</div>
+          <div className="table-cell status-detail" data-label="Returned"><Status value={sample.renvoye} />{sample.renvoye === "YES" && sample.dateRenvoi && <small>{dateLabel(sample.dateRenvoi)}</small>}</div>
+          <div className="table-cell" data-label="Archived on">{filterValue(sample, "archive")}</div>
         </div>
       ) : (
         <ManagerSampleRow key={sample.id} sample={sample} suppliers={suppliers} onSave={onSave} onDelete={onDelete} busy={busy} />
@@ -582,7 +582,7 @@ function ColumnFilter({ label, values, selected, onChange }) {
     <details className={`column-filter ${selected === undefined ? "" : "filtered"}`}>
       <summary aria-label={`Filtrer ${label}`} title={`Filtrer ${label}`}><ListFilter size={13} /></summary>
       <div className="filter-menu">
-        <button type="button" className="filter-clear" onClick={() => onChange(undefined)}>Tout afficher</button>
+        <button type="button" className="filter-clear" onClick={() => onChange(undefined)}>Show all</button>
         {values.map((value) => (
           <label key={value}>
             <input type="checkbox" checked={checkedValues.includes(value)} onChange={() => toggle(value)} />
@@ -636,35 +636,37 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
 
   return (
     <form className="table-row editable-row" onSubmit={submit}>
-      <strong className="ref-cell">{sample.reference}</strong>
-      <select aria-label={`Fournisseur pour ${sample.reference}`} value={draft.supplierSelection || ""} onChange={(event) => update("supplierSelection", event.target.value)}>
-        <option value="">Non attribué</option>
-        {suppliers.map((supplier) => supplier.kind === "account" ? (
-          <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
-            {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
-          </option>
-        ) : (
-          <option key={`named:${supplier.id}`} value={`named:${supplier.name}`}>{supplier.name}</option>
-        ))}
-      </select>
-      <input aria-label={`Date de demande pour ${sample.reference}`} type="date" value={draft.dateDemande || ""} onChange={(event) => update("dateDemande", event.target.value)} />
-      <div className="row-control-group">
-        <select aria-label={`Disponibilité pour ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => update("disponible", event.target.value)}>
-          <option value="">À renseigner</option><option value="YES">YES</option><option value="NO">NO</option>
+      <div className="table-cell" data-label="Reference"><strong className="ref-cell">{sample.reference}</strong></div>
+      <div className="table-cell" data-label="Supplier">
+        <select aria-label={`Supplier for ${sample.reference}`} value={draft.supplierSelection || ""} onChange={(event) => update("supplierSelection", event.target.value)}>
+          <option value="">Unassigned</option>
+          {suppliers.map((supplier) => supplier.kind === "account" ? (
+            <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
+              {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
+            </option>
+          ) : (
+            <option key={`named:${supplier.id}`} value={`named:${supplier.name}`}>{supplier.name}</option>
+          ))}
         </select>
-        {draft.disponible === "NO" && <input aria-label={`Date de disponibilité pour ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} required />}
       </div>
-      <input aria-label={`Date d'envoi pour ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => update("dateEnvoi", event.target.value)} />
-      <input aria-label={`Date de réception pour ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => update("dateReception", event.target.value)} />
-      <div className="row-control-group">
-        <select aria-label={`Statut de renvoi pour ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => update("renvoye", event.target.value)}>
+      <div className="table-cell" data-label="Requested"><input aria-label={`Request date for ${sample.reference}`} type="date" value={draft.dateDemande || ""} onChange={(event) => update("dateDemande", event.target.value)} /></div>
+      <div className="table-cell row-control-group" data-label="Availability">
+        <select aria-label={`Availability for ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => update("disponible", event.target.value)}>
+          <option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option>
+        </select>
+        {draft.disponible === "NO" && <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} required />}
+      </div>
+      <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => update("dateEnvoi", event.target.value)} /></div>
+      <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => update("dateReception", event.target.value)} /></div>
+      <div className="table-cell row-control-group" data-label="Returned">
+        <select aria-label={`Return status for ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => update("renvoye", event.target.value)}>
           <option value="NO">NO</option><option value="YES">YES</option>
         </select>
-        {draft.renvoye === "YES" && <input aria-label={`Date de renvoi pour ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} required />}
+        {draft.renvoye === "YES" && <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} required />}
       </div>
-      <div className="row-actions">
-        <button className="icon-button save-icon" type="submit" aria-label={`Enregistrer ${sample.reference}`} title="Enregistrer" disabled={busy}><Save size={15} /></button>
-        <button className="icon-button delete-icon" type="button" aria-label={`Supprimer ${sample.reference}`} title="Supprimer" onClick={() => onDelete(sample)} disabled={busy}><Trash2 size={15} /></button>
+      <div className="table-cell row-actions" data-label="Actions">
+        <button className="icon-button save-icon" type="submit" aria-label={`Save ${sample.reference}`} title="Save" disabled={busy}><Save size={15} /></button>
+        <button className="icon-button delete-icon" type="button" aria-label={`Delete ${sample.reference}`} title="Delete" onClick={() => onDelete(sample)} disabled={busy}><Trash2 size={15} /></button>
       </div>
     </form>
   );
@@ -690,35 +692,35 @@ function SupplierDirectory({ suppliers, newSupplier, setNewSupplier, editingSupp
   return (
     <section className="supplier-directory-page">
       <div className="section-heading">
-        <div><p className="eyebrow">ANNUAIRE</p><h2>Fournisseurs</h2></div>
-        <span className="result-count">{suppliers.length} fournisseur{suppliers.length > 1 ? "s" : ""}</span>
+        <div><p className="eyebrow">DIRECTORY</p><h2>Suppliers</h2></div>
+        <span className="result-count">{suppliers.length} supplier{suppliers.length === 1 ? "" : "s"}</span>
       </div>
       <div className="supplier-directory-grid">
         <section className="form-panel supplier-entry-panel">
-          <div className="panel-title"><span className="panel-icon mint">{editingSupplier ? <Pencil size={18} /> : <Plus size={18} />}</span><div><h3>{editingSupplier ? "Modifier un fournisseur" : "Ajouter un fournisseur"}</h3><p>{editingSupplier ? "Mettre à jour ses coordonnées" : "Enregistrer ses coordonnées dans l’annuaire"}</p></div></div>
+          <div className="panel-title"><span className="panel-icon mint">{editingSupplier ? <Pencil size={18} /> : <Plus size={18} />}</span><div><h3>{editingSupplier ? "Edit supplier" : "Add a supplier"}</h3><p>{editingSupplier ? "Update supplier contact details" : "Add contact details to the directory"}</p></div></div>
           <form className="stack-form compact" onSubmit={saveSupplier}>
-            <label>Nom du fournisseur / entreprise<input autoComplete="organization" maxLength={150} value={newSupplier.name} onChange={(event) => setNewSupplier({ ...newSupplier, name: event.target.value })} required /></label>
+            <label>Supplier / company name<input autoComplete="organization" maxLength={150} value={newSupplier.name} onChange={(event) => setNewSupplier({ ...newSupplier, name: event.target.value })} required /></label>
             <div className="field-grid">
-              <label className="form-field">Prénom du contact<input autoComplete="given-name" maxLength={100} value={newSupplier.firstName} onChange={(event) => setNewSupplier({ ...newSupplier, firstName: event.target.value })} required /></label>
-              <label className="form-field">Nom du contact<input autoComplete="family-name" maxLength={100} value={newSupplier.lastName} onChange={(event) => setNewSupplier({ ...newSupplier, lastName: event.target.value })} required /></label>
+              <label className="form-field">Contact first name<input autoComplete="given-name" maxLength={100} value={newSupplier.firstName} onChange={(event) => setNewSupplier({ ...newSupplier, firstName: event.target.value })} required /></label>
+              <label className="form-field">Contact last name<input autoComplete="family-name" maxLength={100} value={newSupplier.lastName} onChange={(event) => setNewSupplier({ ...newSupplier, lastName: event.target.value })} required /></label>
             </div>
-            <label>Adresse e-mail<input type="email" autoComplete="email" maxLength={254} value={newSupplier.email} onChange={(event) => setNewSupplier({ ...newSupplier, email: event.target.value })} required /></label>
-            <label>Numéro de téléphone international<input type="tel" autoComplete="tel" placeholder="+33 6 12 34 56 78" maxLength={30} value={newSupplier.phone} onChange={(event) => setNewSupplier({ ...newSupplier, phone: event.target.value })} required /><small>Inclure l’indicatif international, par exemple +33.</small></label>
-            <button className="button button-dark" disabled={busy}>{editingSupplier ? <Save size={16} /> : <Plus size={16} />} {busy ? "Enregistrement…" : editingSupplier ? "Enregistrer les modifications" : "Enregistrer le fournisseur"}</button>
-            {editingSupplier && <button className="button supplier-cancel-button" type="button" onClick={cancelEdit} disabled={busy}>Annuler</button>}
+            <label>Email address<input type="email" autoComplete="email" maxLength={254} value={newSupplier.email} onChange={(event) => setNewSupplier({ ...newSupplier, email: event.target.value })} required /></label>
+            <label>International phone number<input type="tel" autoComplete="tel" placeholder="+33 6 12 34 56 78" maxLength={30} value={newSupplier.phone} onChange={(event) => setNewSupplier({ ...newSupplier, phone: event.target.value })} required /><small>Include the international calling code, for example +33.</small></label>
+            <button className="button button-dark" disabled={busy}>{editingSupplier ? <Save size={16} /> : <Plus size={16} />} {busy ? "Saving…" : editingSupplier ? "Save changes" : "Save supplier"}</button>
+            {editingSupplier && <button className="button supplier-cancel-button" type="button" onClick={cancelEdit} disabled={busy}>Cancel</button>}
           </form>
         </section>
         <div className="supplier-directory-list">
-          {suppliers.length === 0 ? <EmptyState text="Aucun fournisseur dans l’annuaire." /> : suppliers.map((supplier) => (
+          {suppliers.length === 0 ? <EmptyState text="No suppliers in the directory." /> : suppliers.map((supplier) => (
             <article className="supplier-contact-card" key={`${supplier.kind}:${supplier.id}`}>
               <span className="sample-icon"><Users size={17} /></span>
               <div className="supplier-contact-info">
-                <strong>{supplier.name || supplier.company || "Fournisseur sans nom"}</strong>
-                <span>{[supplier.first_name, supplier.last_name].filter(Boolean).join(" ") || "Contact non renseigné"}</span>
+                <strong>{supplier.name || supplier.company || "Unnamed supplier"}</strong>
+                <span>{[supplier.first_name, supplier.last_name].filter(Boolean).join(" ") || "Contact details not provided"}</span>
                 {supplier.email && <a href={`mailto:${supplier.email}`}>{supplier.email}</a>}
                 {supplier.phone && <a href={`tel:${supplier.phone}`}>{supplier.phone}</a>}
               </div>
-              <button className="icon-button supplier-edit-button" type="button" aria-label={`Modifier ${supplier.name || supplier.company || supplier.email}`} title="Modifier" onClick={() => editSupplier(supplier)} disabled={busy}>
+              <button className="icon-button supplier-edit-button" type="button" aria-label={`Edit ${supplier.name || supplier.company || supplier.email}`} title="Edit" onClick={() => editSupplier(supplier)} disabled={busy}>
                 <Pencil size={15} />
               </button>
             </article>
@@ -732,26 +734,26 @@ function SupplierDirectory({ suppliers, newSupplier, setNewSupplier, editingSupp
 function SupplierWorkspace({ samples, selectedId, setSelectedId, selectedSample, followup, setFollowup, saveFollowup, busy }) {
   return (
     <section className="supplier-workspace">
-      <div className="section-heading"><div><p className="eyebrow">VOTRE ESPACE</p><h2>Mes échantillons</h2></div><span className="result-count">{samples.length} référence{samples.length > 1 ? "s" : ""}</span></div>
-      {samples.length === 0 ? <EmptyState text="Aucun sample ne vous a encore été attribué. Contactez le gestionnaire." /> : (
+      <div className="section-heading"><div><p className="eyebrow">YOUR WORKSPACE</p><h2>My samples</h2></div><span className="result-count">{samples.length} reference{samples.length === 1 ? "" : "s"}</span></div>
+      {samples.length === 0 ? <EmptyState text="No samples have been assigned to you yet. Please contact your manager." /> : (
         <div className="supplier-grid">
           <div className="supplier-list">
             {samples.map((sample) => <button key={sample.id} className={`supplier-sample ${String(sample.id) === selectedId ? "selected" : ""}`} onClick={() => setSelectedId(String(sample.id))}>
-              <span className="sample-icon"><Boxes size={17} /></span><span className="sample-copy"><strong>{sample.reference}</strong><small>{sample.dateDemande ? `Demande · ${dateLabel(sample.dateDemande)}` : "Informations à compléter"}</small></span><span className="sample-arrow">›</span>
+              <span className="sample-icon"><Boxes size={17} /></span><span className="sample-copy"><strong>{sample.reference}</strong><small>{sample.dateDemande ? `Requested · ${dateLabel(sample.dateDemande)}` : "Details to be completed"}</small></span><span className="sample-arrow">›</span>
             </button>)}
           </div>
           {selectedSample && <form className="form-panel followup-panel" onSubmit={saveFollowup}>
-            <div className="followup-heading"><div><p className="eyebrow">FICHE ÉCHANTILLON</p><h2>{selectedSample.reference}</h2></div><span className="status-tag">{selectedSample.dateReception ? "Reçu" : "En cours"}</span></div>
+            <div className="followup-heading"><div><p className="eyebrow">SAMPLE DETAILS</p><h2>{selectedSample.reference}</h2></div><span className="status-tag">{selectedSample.dateReception ? "Received" : "In progress"}</span></div>
             <div className="field-grid">
-              <DateField label="Date de demande du sample" value={followup.dateDemande} onChange={(value) => setFollowup({ ...followup, dateDemande: value })} />
-              <label className="form-field">Disponibilité<select value={followup.disponible} onChange={(event) => setFollowup({ ...followup, disponible: event.target.value, dateDisponibilite: event.target.value === "NO" ? followup.dateDisponibilite : "" })}><option value="">À renseigner</option><option value="YES">YES</option><option value="NO">NO</option></select></label>
-              {followup.disponible === "NO" && <DateField label="Date de disponibilité prévue" value={followup.dateDisponibilite} onChange={(value) => setFollowup({ ...followup, dateDisponibilite: value })} required />}
-              <DateField label="Date d'envoi du sample" value={followup.dateEnvoi} onChange={(value) => setFollowup({ ...followup, dateEnvoi: value })} />
-              <DateField label="Date de réception du sample" value={followup.dateReception} onChange={(value) => setFollowup({ ...followup, dateReception: value })} />
-              <label className="form-field">Sample renvoyé ?<select value={followup.renvoye} onChange={(event) => setFollowup({ ...followup, renvoye: event.target.value, dateRenvoi: event.target.value === "YES" ? followup.dateRenvoi : "" })}><option value="NO">NO</option><option value="YES">YES</option></select></label>
-              {followup.renvoye === "YES" && <DateField label="Date de renvoi" value={followup.dateRenvoi} onChange={(value) => setFollowup({ ...followup, dateRenvoi: value })} required />}
+              <DateField label="Sample request date" value={followup.dateDemande} onChange={(value) => setFollowup({ ...followup, dateDemande: value })} />
+              <label className="form-field">Availability<select value={followup.disponible} onChange={(event) => setFollowup({ ...followup, disponible: event.target.value, dateDisponibilite: event.target.value === "NO" ? followup.dateDisponibilite : "" })}><option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option></select></label>
+              {followup.disponible === "NO" && <DateField label="Expected availability date" value={followup.dateDisponibilite} onChange={(value) => setFollowup({ ...followup, dateDisponibilite: value })} required />}
+              <DateField label="Sample shipment date" value={followup.dateEnvoi} onChange={(value) => setFollowup({ ...followup, dateEnvoi: value })} />
+              <DateField label="Sample receipt date" value={followup.dateReception} onChange={(value) => setFollowup({ ...followup, dateReception: value })} />
+              <label className="form-field">Has the sample been returned?<select value={followup.renvoye} onChange={(event) => setFollowup({ ...followup, renvoye: event.target.value, dateRenvoi: event.target.value === "YES" ? followup.dateRenvoi : "" })}><option value="NO">NO</option><option value="YES">YES</option></select></label>
+              {followup.renvoye === "YES" && <DateField label="Return date" value={followup.dateRenvoi} onChange={(value) => setFollowup({ ...followup, dateRenvoi: value })} required />}
             </div>
-            <div className="save-row"><span><ShieldCheck size={15} /> Vos modifications sont partagées avec le gestionnaire</span><button className="button button-dark" disabled={busy}><Save size={16} /> {busy ? "Enregistrement…" : "Enregistrer"}</button></div>
+            <div className="save-row"><span><ShieldCheck size={15} /> Your updates are shared with the manager</span><button className="button button-dark" disabled={busy}><Save size={16} /> {busy ? "Saving…" : "Save updates"}</button></div>
           </form>}
         </div>
       )}
@@ -768,7 +770,7 @@ function Summary({ icon, label, value, tone }) {
 }
 
 function Status({ value }) {
-  if (!value) return <span className="status-pill neutral">À renseigner</span>;
+  if (!value) return <span className="status-pill neutral">Not set</span>;
   return <span className={`status-pill ${value === "YES" ? "positive" : "negative"}`}><span />{value}</span>;
 }
 

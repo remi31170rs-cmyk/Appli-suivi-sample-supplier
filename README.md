@@ -25,12 +25,13 @@ Le script de création du compte gestionnaire demande les identifiants par varia
 - Création de compte depuis l'accueil avec prénom, nom, e-mail et mot de passe (12 caractères minimum). Un fournisseur renseigne son entreprise; un référant indique son poste et est rattaché à Lacoste.
 - La page Fournisseurs permet au référant de visualiser, ajouter et modifier les fournisseurs de l'annuaire ainsi que les comptes fournisseurs existants (nom de l'entreprise, contact, e-mail et téléphone).
 - Lors de la création d'une référence, un référant peut choisir un compte fournisseur existant ou un fournisseur de l'annuaire.
-- Un gestionnaire crée une référence unique.
+- Les références créées sont enregistrées dans la base et apparaissent dans un tableau dédié « Saved references », distinct du formulaire de création. Le gestionnaire peut ensuite les modifier ou les archiver; le tableau s'adapte aux petits écrans sans défilement horizontal.
 - Les noms de fournisseurs ajoutés lors de la création d'une référence sont enregistrés dans l'annuaire et réutilisables.
 - Le gestionnaire peut modifier les données directement dans les lignes du suivi. La suppression d'une référence l'archive dans l'historique sans effacer ses données.
 - Les pages « Suivi » et « Historique » proposent des filtres par valeurs pour chaque colonne.
 - Un fournisseur connecté consulte les références et renseigne la date de demande, la disponibilité, la date de disponibilité prévue si `NO`, les dates d'envoi et de réception, le statut de renvoi et sa date si `YES`.
 - Les données sont persistées dans PostgreSQL.
+- L'interface de l'application est en anglais.
 
 ## API
 
