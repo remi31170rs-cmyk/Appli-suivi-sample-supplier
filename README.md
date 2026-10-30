@@ -23,7 +23,7 @@ Le script de création du compte gestionnaire demande les identifiants par varia
 
 - Connexion avec JWT et rôles `manager` / `supplier`.
 - Création de compte depuis l'accueil avec prénom, nom, e-mail et mot de passe (12 caractères minimum). Un fournisseur renseigne son entreprise; un référant indique son poste et est rattaché à Lacoste.
-- La page Fournisseurs permet au référant de visualiser et d'ajouter un fournisseur avec le nom de l'entreprise, le prénom et le nom du contact, son e-mail et son numéro international.
+- La page Fournisseurs permet au référant de visualiser, ajouter et modifier les fournisseurs de l'annuaire ainsi que les comptes fournisseurs existants (nom de l'entreprise, contact, e-mail et téléphone).
 - Lors de la création d'une référence, un référant peut choisir un compte fournisseur existant ou un fournisseur de l'annuaire.
 - Un gestionnaire crée une référence unique.
 - Les noms de fournisseurs ajoutés lors de la création d'une référence sont enregistrés dans l'annuaire et réutilisables.
@@ -40,6 +40,8 @@ Le script de création du compte gestionnaire demande les identifiants par varia
 - `GET /api/samples` : liste des samples (JWT requis).
 - `GET /api/samples/history` : références archivées (gestionnaire uniquement).
 - `POST /api/suppliers/directory` : ajouter ou mettre à jour un fournisseur dans l'annuaire (gestionnaire uniquement).
+- `PATCH /api/suppliers/directory/:id` : modifier un fournisseur de l'annuaire (gestionnaire uniquement).
+- `PATCH /api/users/suppliers/:id` : modifier les informations d'un compte fournisseur (gestionnaire uniquement).
 - `POST /api/samples` : créer une référence (manager uniquement).
 - `PATCH /api/manager/samples/:id` : modifier le suivi ou le fournisseur (manager uniquement).
 - `DELETE /api/samples/:id` : archiver une référence (manager uniquement).

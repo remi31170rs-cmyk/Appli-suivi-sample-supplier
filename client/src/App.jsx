@@ -9,6 +9,7 @@ import {
   ListFilter,
   LogOut,
   PackagePlus,
+  Pencil,
   Plus,
   Save,
   ShieldCheck,
@@ -91,6 +92,7 @@ function App() {
     email: "",
     phone: "",
   });
+  const [editingSupplier, setEditingSupplier] = useState(null);
   const [newReference, setNewReference] = useState({
     reference: "",
     supplierId: "",
@@ -211,14 +213,22 @@ function App() {
     setBusy(true);
     setMessage(null);
     try {
-      await api("/api/suppliers/directory", token, {
-        method: "POST",
-        body: JSON.stringify(newSupplier),
+      const path = editingSupplier
+        ? editingSupplier.kind === "account"
+          ? `/api/users/suppliers/${editingSupplier.id}`
+          : `/api/suppliers/directory/${editingSupplier.id}`
+        : "/api/suppliers/directory";
+      const supplierData = editingSupplier?.kind === "account"
+        ? { ...newSupplier, company: newSupplier.name }
+        : newSupplier;
+      await api(path, token, {
+        method: editingSupplier ? "PATCH" : "POST",
+        body: JSON.stringify(supplierData),
       });
-      const { suppliers: supplierRows } = await api("/api/users/suppliers", token);
-      setSuppliers(supplierRows);
+      await loadWorkspace(token, user);
       setNewSupplier({ name: "", firstName: "", lastName: "", email: "", phone: "" });
-      setMessage({ type: "success", text: "Fournisseur enregistré." });
+      setEditingSupplier(null);
+      setMessage({ type: "success", text: editingSupplier ? "Fournisseur modifié." : "Fournisseur enregistré." });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -401,7 +411,15 @@ function App() {
 
         {manager ? (
           activeView === "fournisseurs" ? (
-            <SupplierDirectory suppliers={suppliers} newSupplier={newSupplier} setNewSupplier={setNewSupplier} saveSupplier={saveSupplier} busy={busy} />
+            <SupplierDirectory
+              suppliers={suppliers}
+              newSupplier={newSupplier}
+              setNewSupplier={setNewSupplier}
+              editingSupplier={editingSupplier}
+              setEditingSupplier={setEditingSupplier}
+              saveSupplier={saveSupplier}
+              busy={busy}
+            />
           ) : activeView === "historique" ? (
             <section className="manager-page">
               <div className="section-heading"><div><p className="eyebrow">ARCHIVES</p><h2>Références supprimées</h2></div><span className="result-count">{historySamples.length} au total</span></div>
@@ -449,12 +467,12 @@ function App() {
                           }}
                         >
                           <option value="">Non attribué</option>
-                          {suppliers.map((supplier) => supplier.id ? (
+                          {suppliers.map((supplier) => supplier.kind === "account" ? (
                             <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
                               {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
                             </option>
                           ) : (
-                            <option key={`named:${supplier.name}`} value={`named:${supplier.name}`}>{supplier.name}</option>
+                            <option key={`named:${supplier.id}`} value={`named:${supplier.name}`}>{supplier.name}</option>
                           ))}
                         </select>
                       </label>
@@ -621,12 +639,12 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
       <strong className="ref-cell">{sample.reference}</strong>
       <select aria-label={`Fournisseur pour ${sample.reference}`} value={draft.supplierSelection || ""} onChange={(event) => update("supplierSelection", event.target.value)}>
         <option value="">Non attribué</option>
-        {suppliers.map((supplier) => supplier.id ? (
+        {suppliers.map((supplier) => supplier.kind === "account" ? (
           <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
             {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
           </option>
         ) : (
-          <option key={`named:${supplier.name}`} value={`named:${supplier.name}`}>{supplier.name}</option>
+          <option key={`named:${supplier.id}`} value={`named:${supplier.name}`}>{supplier.name}</option>
         ))}
       </select>
       <input aria-label={`Date de demande pour ${sample.reference}`} type="date" value={draft.dateDemande || ""} onChange={(event) => update("dateDemande", event.target.value)} />
@@ -652,7 +670,23 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
   );
 }
 
-function SupplierDirectory({ suppliers, newSupplier, setNewSupplier, saveSupplier, busy }) {
+function SupplierDirectory({ suppliers, newSupplier, setNewSupplier, editingSupplier, setEditingSupplier, saveSupplier, busy }) {
+  function editSupplier(supplier) {
+    setEditingSupplier(supplier);
+    setNewSupplier({
+      name: supplier.name || supplier.company || "",
+      firstName: supplier.first_name || "",
+      lastName: supplier.last_name || "",
+      email: supplier.email || "",
+      phone: supplier.phone || "",
+    });
+  }
+
+  function cancelEdit() {
+    setEditingSupplier(null);
+    setNewSupplier({ name: "", firstName: "", lastName: "", email: "", phone: "" });
+  }
+
   return (
     <section className="supplier-directory-page">
       <div className="section-heading">
@@ -661,7 +695,7 @@ function SupplierDirectory({ suppliers, newSupplier, setNewSupplier, saveSupplie
       </div>
       <div className="supplier-directory-grid">
         <section className="form-panel supplier-entry-panel">
-          <div className="panel-title"><span className="panel-icon mint"><Plus size={18} /></span><div><h3>Ajouter un fournisseur</h3><p>Enregistrer ses coordonnées dans l’annuaire</p></div></div>
+          <div className="panel-title"><span className="panel-icon mint">{editingSupplier ? <Pencil size={18} /> : <Plus size={18} />}</span><div><h3>{editingSupplier ? "Modifier un fournisseur" : "Ajouter un fournisseur"}</h3><p>{editingSupplier ? "Mettre à jour ses coordonnées" : "Enregistrer ses coordonnées dans l’annuaire"}</p></div></div>
           <form className="stack-form compact" onSubmit={saveSupplier}>
             <label>Nom du fournisseur / entreprise<input autoComplete="organization" maxLength={150} value={newSupplier.name} onChange={(event) => setNewSupplier({ ...newSupplier, name: event.target.value })} required /></label>
             <div className="field-grid">
@@ -670,12 +704,13 @@ function SupplierDirectory({ suppliers, newSupplier, setNewSupplier, saveSupplie
             </div>
             <label>Adresse e-mail<input type="email" autoComplete="email" maxLength={254} value={newSupplier.email} onChange={(event) => setNewSupplier({ ...newSupplier, email: event.target.value })} required /></label>
             <label>Numéro de téléphone international<input type="tel" autoComplete="tel" placeholder="+33 6 12 34 56 78" maxLength={30} value={newSupplier.phone} onChange={(event) => setNewSupplier({ ...newSupplier, phone: event.target.value })} required /><small>Inclure l’indicatif international, par exemple +33.</small></label>
-            <button className="button button-dark" disabled={busy}><Plus size={16} /> {busy ? "Enregistrement…" : "Enregistrer le fournisseur"}</button>
+            <button className="button button-dark" disabled={busy}>{editingSupplier ? <Save size={16} /> : <Plus size={16} />} {busy ? "Enregistrement…" : editingSupplier ? "Enregistrer les modifications" : "Enregistrer le fournisseur"}</button>
+            {editingSupplier && <button className="button supplier-cancel-button" type="button" onClick={cancelEdit} disabled={busy}>Annuler</button>}
           </form>
         </section>
         <div className="supplier-directory-list">
           {suppliers.length === 0 ? <EmptyState text="Aucun fournisseur dans l’annuaire." /> : suppliers.map((supplier) => (
-            <article className="supplier-contact-card" key={supplier.id ? `account:${supplier.id}` : `directory:${supplier.name}`}>
+            <article className="supplier-contact-card" key={`${supplier.kind}:${supplier.id}`}>
               <span className="sample-icon"><Users size={17} /></span>
               <div className="supplier-contact-info">
                 <strong>{supplier.name || supplier.company || "Fournisseur sans nom"}</strong>
@@ -683,6 +718,9 @@ function SupplierDirectory({ suppliers, newSupplier, setNewSupplier, saveSupplie
                 {supplier.email && <a href={`mailto:${supplier.email}`}>{supplier.email}</a>}
                 {supplier.phone && <a href={`tel:${supplier.phone}`}>{supplier.phone}</a>}
               </div>
+              <button className="icon-button supplier-edit-button" type="button" aria-label={`Modifier ${supplier.name || supplier.company || supplier.email}`} title="Modifier" onClick={() => editSupplier(supplier)} disabled={busy}>
+                <Pencil size={15} />
+              </button>
             </article>
           ))}
         </div>

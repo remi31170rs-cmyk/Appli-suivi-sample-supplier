@@ -185,7 +185,7 @@ app.get("/api/users/suppliers", requireAuth, requireRole("manager"), async (_req
       `SELECT id, email, company, NULL::text AS name, first_name, last_name, phone,
               'account'::text AS kind FROM users WHERE role = 'supplier'
        UNION ALL
-       SELECT NULL::bigint AS id, email, name AS company, name, first_name, last_name, phone,
+       SELECT id, email, name AS company, name, first_name, last_name, phone,
               'directory'::text AS kind
        FROM supplier_directory
        ORDER BY company NULLS LAST, email NULLS LAST, name NULLS LAST`
@@ -224,6 +224,89 @@ app.post("/api/suppliers/directory", requireAuth, requireRole("manager"), async 
       [name, firstName, lastName, email, phone]
     );
     return response.status(201).json({ supplier: result.rows[0] });
+  } catch (error) {
+    if (error.code === "23505") return response.status(409).json({ error: "Cette adresse e-mail est déjà utilisée par un fournisseur." });
+    return next(error);
+  }
+});
+
+app.patch("/api/suppliers/directory/:id", requireAuth, requireRole("manager"), async (request, response, next) => {
+  const id = Number(request.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return response.status(400).json({ error: "Identifiant invalide." });
+
+  const name = String(request.body.name || "").trim();
+  const firstName = String(request.body.firstName || "").trim();
+  const lastName = String(request.body.lastName || "").trim();
+  const email = String(request.body.email || "").trim().toLowerCase();
+  const phone = String(request.body.phone || "").trim();
+  if (!name || name.length > 150 || !firstName || firstName.length > 100 || !lastName || lastName.length > 100) {
+    return response.status(400).json({ error: "Le fournisseur et le prénom et nom du contact sont obligatoires. Limites : fournisseur 150 caractères, prénom et nom 100 caractères." });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    return response.status(400).json({ error: "Adresse e-mail invalide." });
+  }
+  if (!validInternationalPhone(phone)) {
+    return response.status(400).json({ error: "Indiquez un numéro international valide, avec son indicatif (ex. +33 6 12 34 56 78)." });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const current = await client.query("SELECT name FROM supplier_directory WHERE id = $1", [id]);
+    if (!current.rowCount) {
+      await client.query("ROLLBACK");
+      return response.status(404).json({ error: "Fournisseur introuvable." });
+    }
+    const result = await client.query(
+      `UPDATE supplier_directory SET name = $1, first_name = $2, last_name = $3, email = $4, phone = $5
+       WHERE id = $6 RETURNING id, name, first_name, last_name, email, phone`,
+      [name, firstName, lastName, email, phone, id]
+    );
+    if (current.rows[0].name !== name) {
+      await client.query(
+        `UPDATE samples SET supplier_name = $1, updated_at = NOW()
+         WHERE supplier_id IS NULL AND LOWER(supplier_name) = LOWER($2)`,
+        [name, current.rows[0].name]
+      );
+    }
+    await client.query("COMMIT");
+    return response.json({ supplier: result.rows[0] });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK");
+    if (error.code === "23505") return response.status(409).json({ error: "Cette adresse e-mail ou ce nom est déjà utilisé par un fournisseur." });
+    return next(error);
+  } finally {
+    client?.release();
+  }
+});
+
+app.patch("/api/users/suppliers/:id", requireAuth, requireRole("manager"), async (request, response, next) => {
+  try {
+    const id = Number(request.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) return response.status(400).json({ error: "Identifiant invalide." });
+    const email = String(request.body.email || "").trim().toLowerCase();
+    const firstName = String(request.body.firstName || "").trim();
+    const lastName = String(request.body.lastName || "").trim();
+    const company = String(request.body.company || "").trim();
+    const phone = String(request.body.phone || "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return response.status(400).json({ error: "Adresse e-mail invalide." });
+    }
+    if (firstName.length > 100 || lastName.length > 100 || company.length > 150) {
+      return response.status(400).json({ error: "Les informations du fournisseur dépassent la longueur autorisée." });
+    }
+    if (phone && !validInternationalPhone(phone)) {
+      return response.status(400).json({ error: "Indiquez un numéro international valide, avec son indicatif (ex. +33 6 12 34 56 78)." });
+    }
+    const result = await pool.query(
+      `UPDATE users SET email = $1, first_name = $2, last_name = $3, company = $4, phone = $5
+       WHERE id = $6 AND role = 'supplier'
+       RETURNING id, email, company, first_name, last_name, phone`,
+      [email, firstName || null, lastName || null, company || null, phone || null, id]
+    );
+    if (!result.rowCount) return response.status(404).json({ error: "Compte fournisseur introuvable." });
+    return response.json({ supplier: { ...result.rows[0], kind: "account" } });
   } catch (error) {
     if (error.code === "23505") return response.status(409).json({ error: "Cette adresse e-mail est déjà utilisée par un fournisseur." });
     return next(error);
@@ -297,20 +380,31 @@ app.post("/api/samples", requireAuth, requireRole("manager"), async (request, re
     if (supplierId !== null && supplierName) {
       return response.status(400).json({ error: "Choisissez un compte fournisseur ou un nom, pas les deux." });
     }
-    const result = await pool.query(
-      `WITH supplier AS (
-         INSERT INTO supplier_directory (name)
-         SELECT $3
-         WHERE $3 IS NOT NULL
-         ON CONFLICT (LOWER(name)) DO UPDATE SET name = supplier_directory.name
-         RETURNING name
-       )
-       INSERT INTO samples (reference, supplier_id, supplier_name)
-       VALUES ($1, $2, (SELECT name FROM supplier))
-       RETURNING *`,
-      [reference, supplierId, supplierName]
-    );
-    return response.status(201).json({ sample: presentSample(result.rows[0]) });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      if (supplierName) {
+        const supplierResult = await client.query(
+          `INSERT INTO supplier_directory (name) VALUES ($1)
+           ON CONFLICT (LOWER(name)) DO UPDATE SET name = supplier_directory.name
+           RETURNING name`,
+          [supplierName]
+        );
+        if (!supplierResult.rowCount) throw new Error("Impossible de retrouver le fournisseur sélectionné.");
+      }
+      const result = await client.query(
+        `INSERT INTO samples (reference, supplier_id, supplier_name)
+         VALUES ($1, $2, $3) RETURNING *`,
+        [reference, supplierId, supplierName]
+      );
+      await client.query("COMMIT");
+      return response.status(201).json({ sample: presentSample(result.rows[0]) });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     if (error.code === "23505") return response.status(409).json({ error: "Cette référence existe déjà." });
     if (error.code === "23503") return response.status(400).json({ error: "Fournisseur introuvable." });
